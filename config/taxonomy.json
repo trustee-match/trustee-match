@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "skills": [
+    { "id": "finance_treasury", "label": "Finance & treasury", "hint": "Accounts, budgets, treasurer duties, financial controls" },
+    { "id": "audit_risk", "label": "Audit & risk", "hint": "Internal/external audit, risk registers, assurance" },
+    { "id": "legal", "label": "Legal", "hint": "Contracts, charity law, employment law, property law" },
+    { "id": "governance_company_secretarial", "label": "Governance & company secretarial", "hint": "Board process, minutes, filings, constitutions" },
+    { "id": "hr_people", "label": "HR & people", "hint": "Recruitment, employment policy, volunteer management, culture" },
+    { "id": "safeguarding", "label": "Safeguarding", "hint": "Children, vulnerable adults, policies and practice" },
+    { "id": "fundraising", "label": "Fundraising", "hint": "Grants, donors, events, corporate partnerships" },
+    { "id": "marketing_comms", "label": "Marketing & communications", "hint": "Brand, media, social, public relations" },
+    { "id": "digital_data", "label": "Digital & data", "hint": "IT, websites, data protection, systems, cyber" },
+    { "id": "strategy", "label": "Strategy", "hint": "Planning, growth, change, partnerships" },
+    { "id": "property_estates", "label": "Property & estates", "hint": "Buildings, facilities, maintenance, leases" },
+    { "id": "clinical_health", "label": "Clinical & health", "hint": "Medical, nursing, mental health, clinical governance" },
+    { "id": "education", "label": "Education", "hint": "Teaching, training, curriculum, youth learning" },
+    { "id": "operations", "label": "Operations", "hint": "Running services, logistics, retail, process" },
+    { "id": "project_management", "label": "Project management", "hint": "Delivering projects, programmes, capital works" },
+    { "id": "youth_voice", "label": "Youth voice", "hint": "Perspective of young people (typically under 30)" },
+    { "id": "lived_experience", "label": "Lived experience", "hint": "Personal experience of the issue the charity addresses" },
+    { "id": "community_engagement", "label": "Community engagement", "hint": "Local networks, outreach, volunteering" },
+    { "id": "environment_conservation", "label": "Environment & conservation", "hint": "Ecology, sustainability, land and marine management" },
+    { "id": "sport_recreation", "label": "Sport & recreation", "hint": "Coaching, clubs, governing bodies" },
+    { "id": "arts_culture", "label": "Arts & culture", "hint": "Music, heritage, museums, creative practice" }
+  ]
+}

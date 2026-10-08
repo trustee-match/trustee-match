@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CandidateProfile",
+  "description": "Reference only. The canonical schema is the zod ExtractedProfile in src/lib/ai/extract-profile.ts plus the candidates table in supabase/migrations.",
+  "type": "object",
+  "required": [
+    "name",
+    "skills",
+    "causes",
+    "hours_per_month",
+    "consent"
+  ],
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "headline": {
+      "type": "string",
+      "description": "One-line professional summary"
+    },
+    "skills": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "skill",
+          "level"
+        ],
+        "properties": {
+          "skill": {
+            "enum": [
+              "finance_treasury",
+              "audit_risk",
+              "legal",
+              "governance_company_secretarial",
+              "hr_people",
+              "safeguarding",
+              "fundraising",
+              "marketing_comms",
+              "digital_data",
+              "strategy",
+              "property_estates",
+              "clinical_health",
+              "education",
+              "operations",
+              "project_management",
+              "youth_voice",
+              "lived_experience",
+              "community_engagement",
+              "environment_conservation",
+              "sport_recreation",
+              "arts_culture"
+            ]
+          },
+          "level": {
+            "enum": [
+              "working",
+              "professional",
+              "senior"
+            ]
+          },
+          "evidence": {
+            "type": "string",
+            "description": "Short quote or paraphrase from the CV supporting this skill"
+          }
+        }
+      }
+    },
+    "sectors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "causes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Causes the candidate cares about"
+    },
+    "cause_exclusions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "hours_per_month": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "prior_board_experience": {
+      "type": "boolean"
+    },
+    "conflicts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Organisations they already serve or must avoid"
+    },
+    "consent": {
+      "type": "object",
+      "required": [
+        "profile_processing",
+        "share_on_intro"
+      ],
+      "properties": {
+        "profile_processing": {
+          "type": "boolean"
+        },
+        "share_on_intro": {
+          "type": "boolean"
+        },
+        "given_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}

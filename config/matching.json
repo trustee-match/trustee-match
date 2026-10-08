@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "weights": {
+    "gap_fit": 50,
+    "cause_affinity": 20,
+    "commitment_fit": 15,
+    "readiness": 10,
+    "balancing": 5,
+    "diversity_preference": 5
+  },
+  "gap_weight": { "missing": 1.0, "thin": 0.5, "covered": 0.1 },
+  "level_weight": { "senior": 1.0, "professional": 0.8, "working": 0.5 },
+  "cause_affinity": { "exact": 1.0, "related": 0.5, "none": 0.1 },
+  "commitment": { "generous_ratio": 1.5, "exact_fit_score": 0.6 },
+  "readiness": { "experienced": 1.0, "first_timer_read_guide": 1.0, "first_timer": 0.6 },
+  "balancing": { "busy_candidate_open_interests": 2, "stale_role_days": 60 },
+  "thresholds": {
+    "min_score_to_show": 35,
+    "ai_rerank_top_n": 10,
+    "min_grounded_reasons": 2,
+    "alert_top_rank": 5,
+    "alert_min_confidence": "medium",
+    "candidate_deck_size": 5,
+    "charity_highlight_top": 5
+  },
+  "caps": { "open_interests_per_candidate": 3, "open_invites_per_role": 5 },
+  "timers": {
+    "interest_expiry_days": 10,
+    "interest_nudge_day": 5,
+    "did_you_meet_day": 7,
+    "outcome_day": 30,
+    "no_contact_close_day": 21,
+    "ai_timeout_seconds": 20,
+    "job_sweep_minutes": 5
+  },
+  "alerts": {
+    "max_instant_per_24h": 1,
+    "quiet_hours_start": "21:00",
+    "quiet_hours_end": "08:00",
+    "timezone": "Europe/Guernsey",
+    "weekly_recap": "MON 08:00"
+  },
+  "note_max_chars": 200
+}

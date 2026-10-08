@@ -1,0 +1,69 @@
+@import "tailwindcss";
+
+/* Design treatment: calm, island-local, "a board appointment, not a volunteer shift".
+   Sea blue + granite, with a gorse accent. Tokens are redefined for dark mode. */
+:root {
+  --bg: #f7f6f2;
+  --surface: #ffffff;
+  --ink: #1d2730;
+  --ink-muted: #5b6670;
+  --line: #dfe2e4;
+  --sea: #144a6b;
+  --sea-soft: #e3eef5;
+  --granite: #6b7178;
+  --gorse: #e0a800;
+  --gorse-soft: #fff4cc;
+  --missing: #b4462f;
+  --missing-soft: #fbe9e4;
+  --thin: #a3700a;
+  --thin-soft: #fdf1d8;
+  --covered: #2f6b4a;
+  --covered-soft: #e3f1e8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #11171c;
+    --surface: #182129;
+    --ink: #e8ecef;
+    --ink-muted: #a3adb5;
+    --line: #2b3640;
+    --sea: #7fb8dc;
+    --sea-soft: #1b3445;
+    --granite: #9aa2a9;
+    --gorse: #f0c040;
+    --gorse-soft: #3a3115;
+    --missing: #f08a74;
+    --missing-soft: #3d221c;
+    --thin: #e8b45a;
+    --thin-soft: #3a2e14;
+    --covered: #7fc79c;
+    --covered-soft: #1b3326;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-line: var(--line);
+  --color-sea: var(--sea);
+  --color-sea-soft: var(--sea-soft);
+  --color-granite: var(--granite);
+  --color-gorse: var(--gorse);
+  --color-gorse-soft: var(--gorse-soft);
+  --color-missing: var(--missing);
+  --color-missing-soft: var(--missing-soft);
+  --color-thin: var(--thin);
+  --color-thin-soft: var(--thin-soft);
+  --color-covered: var(--covered);
+  --color-covered-soft: var(--covered-soft);
+  --font-sans: var(--font-inter);
+  --font-serif: var(--font-serif-display);
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+}

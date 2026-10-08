@@ -1,0 +1,157 @@
+[
+  {
+    "id": "cand-fund-accountant",
+    "displayName": "Sam (demo)",
+    "skills": [
+      { "skill": "finance_treasury", "level": "senior", "evidence": "Led annual audit for a £2bn fund" },
+      { "skill": "audit_risk", "level": "professional", "evidence": "Chartered accountant, 8 years in fund administration" },
+      { "skill": "governance_company_secretarial", "level": "working", "evidence": "Prepared board packs for fund boards" }
+    ],
+    "causes": ["environment", "children_youth"],
+    "causeExclusions": [],
+    "hoursPerMonth": 6,
+    "priorBoardExperience": false,
+    "readGuide": true,
+    "conflicts": [],
+    "discoverable": true,
+    "preferenceTags": [],
+    "openInterests": 0,
+    "activeWithOrganisations": [],
+    "paused": false
+  },
+  {
+    "id": "cand-hr-director",
+    "displayName": "Jordan (demo)",
+    "skills": [
+      { "skill": "hr_people", "level": "senior", "evidence": "HR Director for a 400-person trust company" },
+      { "skill": "strategy", "level": "professional", "evidence": "Led a three-year people strategy" },
+      { "skill": "safeguarding", "level": "working", "evidence": "Designated safeguarding lead training, 2024" }
+    ],
+    "causes": ["mental_health", "health"],
+    "causeExclusions": [],
+    "hoursPerMonth": 8,
+    "priorBoardExperience": true,
+    "readGuide": false,
+    "conflicts": [],
+    "discoverable": true,
+    "preferenceTags": [],
+    "openInterests": 0,
+    "activeWithOrganisations": [],
+    "paused": false
+  },
+  {
+    "id": "cand-young-developer",
+    "displayName": "Riley (demo)",
+    "skills": [
+      { "skill": "digital_data", "level": "professional", "evidence": "Software engineer, built a museum ticketing app" },
+      { "skill": "youth_voice", "level": "working", "evidence": "Former youth council member, offers a young person's perspective" },
+      { "skill": "marketing_comms", "level": "working", "evidence": "Runs social media for a local band" }
+    ],
+    "causes": ["arts_heritage", "community"],
+    "causeExclusions": [],
+    "hoursPerMonth": 4,
+    "priorBoardExperience": false,
+    "readGuide": true,
+    "conflicts": [],
+    "discoverable": true,
+    "preferenceTags": ["under_35"],
+    "openInterests": 0,
+    "activeWithOrganisations": [],
+    "paused": false
+  },
+  {
+    "id": "cand-company-sec",
+    "displayName": "Alex P (demo)",
+    "skills": [
+      { "skill": "governance_company_secretarial", "level": "senior", "evidence": "Company secretary for 30 regulated entities" },
+      { "skill": "legal", "level": "working", "evidence": "Paralegal background in corporate law" }
+    ],
+    "causes": ["sport", "children_youth"],
+    "causeExclusions": [],
+    "hoursPerMonth": 5,
+    "priorBoardExperience": true,
+    "readGuide": true,
+    "conflicts": [],
+    "discoverable": true,
+    "preferenceTags": [],
+    "openInterests": 2,
+    "activeWithOrganisations": [],
+    "paused": false
+  },
+  {
+    "id": "cand-surveyor",
+    "displayName": "Morgan (demo)",
+    "skills": [
+      { "skill": "property_estates", "level": "senior", "evidence": "Chartered surveyor, manages a 40-building portfolio" },
+      { "skill": "project_management", "level": "professional", "evidence": "Delivered a £3m refurbishment" }
+    ],
+    "causes": ["housing", "poverty"],
+    "causeExclusions": [],
+    "hoursPerMonth": 5,
+    "priorBoardExperience": false,
+    "readGuide": false,
+    "conflicts": [],
+    "discoverable": true,
+    "preferenceTags": [],
+    "openInterests": 0,
+    "activeWithOrganisations": [],
+    "paused": false
+  },
+  {
+    "id": "cand-busy-banker",
+    "displayName": "Casey (demo)",
+    "skills": [
+      { "skill": "finance_treasury", "level": "senior", "evidence": "CFO of a private bank" },
+      { "skill": "strategy", "level": "senior", "evidence": "Board member of two companies" }
+    ],
+    "causes": ["sport"],
+    "causeExclusions": ["faith"],
+    "hoursPerMonth": 2,
+    "priorBoardExperience": true,
+    "readGuide": false,
+    "conflicts": [],
+    "discoverable": true,
+    "preferenceTags": [],
+    "openInterests": 0,
+    "activeWithOrganisations": [],
+    "paused": false
+  },
+  {
+    "id": "cand-bookkeeper",
+    "displayName": "Taylor (demo)",
+    "skills": [
+      { "skill": "finance_treasury", "level": "working", "evidence": "Bookkeeper for three small businesses" },
+      { "skill": "fundraising", "level": "working", "evidence": "Organised a £5k sponsored swim" }
+    ],
+    "causes": ["children_youth", "community"],
+    "causeExclusions": [],
+    "hoursPerMonth": 10,
+    "priorBoardExperience": false,
+    "readGuide": false,
+    "conflicts": [],
+    "discoverable": true,
+    "preferenceTags": [],
+    "openInterests": 0,
+    "activeWithOrganisations": [],
+    "paused": false
+  },
+  {
+    "id": "cand-private-lawyer",
+    "displayName": "Jamie (demo)",
+    "skills": [
+      { "skill": "legal", "level": "senior", "evidence": "Partner, employment and charity law" },
+      { "skill": "hr_people", "level": "professional", "evidence": "Advises on employment disputes" }
+    ],
+    "causes": ["mental_health", "domestic_abuse"],
+    "causeExclusions": [],
+    "hoursPerMonth": 6,
+    "priorBoardExperience": true,
+    "readGuide": true,
+    "conflicts": ["org-island-wellbeing"],
+    "discoverable": false,
+    "preferenceTags": [],
+    "openInterests": 0,
+    "activeWithOrganisations": [],
+    "paused": false
+  }
+]

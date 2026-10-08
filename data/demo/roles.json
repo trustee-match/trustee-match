@@ -1,0 +1,129 @@
+[
+  {
+    "id": "role-youth-finance",
+    "organisationId": "org-harbour-youth",
+    "organisationName": "Harbour Youth Trust (demo)",
+    "title": "Trustee (Finance)",
+    "cause": "children_youth",
+    "hoursPerMonth": 4,
+    "meetingPattern": "Monthly, Thursday evenings",
+    "induction": "Handover with our outgoing treasurer and a buddy trustee",
+    "boardSkills": [
+      { "skill": "legal", "coverage": "covered" },
+      { "skill": "education", "coverage": "covered" },
+      { "skill": "finance_treasury", "coverage": "missing", "note": "Treasurer stepping down after nine years" },
+      { "skill": "digital_data", "coverage": "thin" },
+      { "skill": "fundraising", "coverage": "thin" }
+    ],
+    "mustHaveSkills": [],
+    "diversityPreference": "first_time_trustee",
+    "verified": true,
+    "publishedAt": "2026-10-07T19:38:00Z",
+    "paused": false
+  },
+  {
+    "id": "role-coast-treasurer",
+    "organisationId": "org-coastwatch",
+    "organisationName": "Coastwatch Conservation (demo)",
+    "title": "Treasurer",
+    "cause": "environment",
+    "hoursPerMonth": 5,
+    "meetingPattern": "Every other Tuesday evening",
+    "induction": "Two sessions with the chair plus a site visit",
+    "boardSkills": [
+      { "skill": "environment_conservation", "coverage": "covered" },
+      { "skill": "finance_treasury", "coverage": "missing", "note": "Treasurer stepping down in March" },
+      { "skill": "governance_company_secretarial", "coverage": "thin" },
+      { "skill": "marketing_comms", "coverage": "covered" }
+    ],
+    "mustHaveSkills": ["finance_treasury"],
+    "diversityPreference": null,
+    "verified": true,
+    "publishedAt": "2026-07-20T09:00:00Z",
+    "paused": false
+  },
+  {
+    "id": "role-wellbeing-hr",
+    "organisationId": "org-island-wellbeing",
+    "organisationName": "Island Wellbeing Network (demo)",
+    "title": "Trustee (People & HR)",
+    "cause": "mental_health",
+    "hoursPerMonth": 6,
+    "meetingPattern": "Monthly, lunchtime",
+    "induction": "Induction pack and shadowing one board meeting",
+    "boardSkills": [
+      { "skill": "clinical_health", "coverage": "covered" },
+      { "skill": "hr_people", "coverage": "missing", "note": "Growing staff team of 12, no HR expertise on the board" },
+      { "skill": "safeguarding", "coverage": "thin" },
+      { "skill": "finance_treasury", "coverage": "covered" }
+    ],
+    "mustHaveSkills": [],
+    "diversityPreference": null,
+    "verified": false,
+    "publishedAt": "2026-10-01T12:00:00Z",
+    "paused": false
+  },
+  {
+    "id": "role-heritage-digital",
+    "organisationId": "org-old-town-heritage",
+    "organisationName": "Old Town Heritage Society (demo)",
+    "title": "Trustee (Digital)",
+    "cause": "arts_heritage",
+    "hoursPerMonth": 3,
+    "meetingPattern": "Quarterly, plus an AGM",
+    "induction": "Tour of the collection and a meeting with the archivist",
+    "boardSkills": [
+      { "skill": "arts_culture", "coverage": "covered" },
+      { "skill": "digital_data", "coverage": "missing", "note": "Collection catalogue still on paper" },
+      { "skill": "fundraising", "coverage": "thin" },
+      { "skill": "marketing_comms", "coverage": "thin" }
+    ],
+    "mustHaveSkills": [],
+    "diversityPreference": "under_35",
+    "verified": true,
+    "publishedAt": "2026-09-15T10:00:00Z",
+    "paused": false
+  },
+  {
+    "id": "role-sports-secretary",
+    "organisationId": "org-island-netball",
+    "organisationName": "Island Netball Association (demo)",
+    "title": "Company Secretary",
+    "cause": "sport",
+    "hoursPerMonth": 4,
+    "meetingPattern": "Monthly, Wednesday evenings",
+    "induction": "Handover from current secretary",
+    "boardSkills": [
+      { "skill": "sport_recreation", "coverage": "covered" },
+      { "skill": "governance_company_secretarial", "coverage": "missing", "note": "Annual filings are overdue" },
+      { "skill": "legal", "coverage": "thin" },
+      { "skill": "safeguarding", "coverage": "covered" }
+    ],
+    "mustHaveSkills": [],
+    "diversityPreference": null,
+    "verified": true,
+    "publishedAt": "2026-08-01T10:00:00Z",
+    "paused": false
+  },
+  {
+    "id": "role-housing-property",
+    "organisationId": "org-safe-haven",
+    "organisationName": "Safe Haven Housing (demo)",
+    "title": "Trustee (Property)",
+    "cause": "housing",
+    "hoursPerMonth": 5,
+    "meetingPattern": "Monthly, Monday evenings",
+    "induction": "Visit to both houses and a meeting with the manager",
+    "boardSkills": [
+      { "skill": "property_estates", "coverage": "missing", "note": "Two properties need a maintenance plan" },
+      { "skill": "safeguarding", "coverage": "covered" },
+      { "skill": "lived_experience", "coverage": "thin" },
+      { "skill": "finance_treasury", "coverage": "covered" }
+    ],
+    "mustHaveSkills": [],
+    "diversityPreference": null,
+    "verified": true,
+    "publishedAt": "2026-06-01T10:00:00Z",
+    "paused": false
+  }
+]

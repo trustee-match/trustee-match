@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "causes": [
+    { "id": "environment", "label": "Environment & nature" },
+    { "id": "animals", "label": "Animal welfare" },
+    { "id": "children_youth", "label": "Children & young people" },
+    { "id": "education", "label": "Education & skills" },
+    { "id": "health", "label": "Health & wellbeing" },
+    { "id": "mental_health", "label": "Mental health" },
+    { "id": "older_people", "label": "Older people" },
+    { "id": "disability", "label": "Disability" },
+    { "id": "poverty", "label": "Poverty & hardship" },
+    { "id": "housing", "label": "Housing & homelessness" },
+    { "id": "domestic_abuse", "label": "Domestic abuse" },
+    { "id": "employment", "label": "Employment & training" },
+    { "id": "arts_heritage", "label": "Arts & heritage" },
+    { "id": "sport", "label": "Sport & recreation" },
+    { "id": "community", "label": "Community & social" },
+    { "id": "faith", "label": "Faith" },
+    { "id": "international", "label": "International aid" }
+  ],
+  "related": [
+    ["environment", "animals"],
+    ["children_youth", "education"],
+    ["health", "mental_health"],
+    ["health", "older_people"],
+    ["health", "disability"],
+    ["poverty", "housing"],
+    ["poverty", "employment"],
+    ["domestic_abuse", "housing"],
+    ["domestic_abuse", "children_youth"],
+    ["community", "older_people"],
+    ["community", "sport"],
+    ["sport", "children_youth"],
+    ["sport", "health"],
+    ["arts_heritage", "community"],
+    ["employment", "education"]
+  ]
+}

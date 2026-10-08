@@ -1,0 +1,14 @@
+# Keeps dependencies patched with minimal maintainer effort (plan §4.9: "upgrade churn").
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
