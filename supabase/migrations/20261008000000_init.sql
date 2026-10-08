@@ -189,7 +189,7 @@ create table public.flags (
 );
 
 create table public.share_links (
-  token text primary key default encode(gen_random_bytes(18), 'base64url'),
+  token text primary key default translate(encode(extensions.gen_random_bytes(18), 'base64'), '+/', '-_'),
   role_id uuid not null references public.roles (id) on delete cascade,
   created_by uuid not null references public.profiles (id),
   expires_at timestamptz not null default now() + interval '14 days',
