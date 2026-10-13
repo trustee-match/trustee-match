@@ -1,20 +1,18 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { RoleCard } from "@/components/cards";
 import { CAUSES } from "@/lib/config";
-import type { Card, Role } from "@/lib/matching/types";
-import type { NoMatchDiagnosis } from "@/lib/matching/no-match-feedback";
-import { confirmProfileAndMatch, extractFromText, getMatchesForCandidate, type ConfirmInput } from "./actions";
+import { confirmProfileAndMatch, extractFromText, type ConfirmInput } from "./actions";
 
 type ExtractedSkill = { skill: string; level: string; evidence: string };
 
 type Step =
   | { kind: "intro" }
-  | { kind: "review"; headline: string; skills: (ExtractedSkill & { include: boolean })[]; suggestedCauses: string[]; priorBoardExperience: boolean }
-  | { kind: "results"; matches: { role: Role; card: Card }[]; diagnosis: NoMatchDiagnosis | null };
+  | { kind: "review"; headline: string; skills: (ExtractedSkill & { include: boolean })[]; suggestedCauses: string[]; priorBoardExperience: boolean };
 
 export function JoinFlow() {
+  const router = useRouter();
   const [step, setStep] = useState<Step>({ kind: "intro" });
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -31,23 +29,10 @@ export function JoinFlow() {
   const [headline, setHeadline] = useState("");
   const [skills, setSkills] = useState<(ExtractedSkill & { include: boolean })[]>([]);
 
-  // "Start over" / "Back" must clear every field, not just change the screen — testing
-  // two people in one browser session previously left stale name/email/CV text behind,
-  // which silently got attributed to the next person (see planning/testing-log.md).
-  function resetAll() {
-    setStep({ kind: "intro" });
-    setName("");
-    setEmail("");
-    setCvText("");
-    setError(null);
-    setCauses([]);
-    setHoursPerMonth(5);
-    setPriorBoardExperience(false);
-    setReadGuide(false);
-    setConflictText("");
-    setHeadline("");
-    setSkills([]);
-  }
+  // The stale-state bug this used to guard against (planning/testing-log.md) can't
+  // recur now: confirming navigates to a different route (/join/candidate/[id]) rather
+  // than toggling local state, so a fresh visit to /join always mounts this component
+  // anew. No explicit reset needed.
 
   async function handleExtract() {
     setError(null);
@@ -90,17 +75,7 @@ export function JoinFlow() {
       setError(confirmed.error);
       return;
     }
-    const matches = await getMatchesForCandidate(confirmed.candidateId);
-    setLoading(false);
-    if (!matches.ok) {
-      setError(matches.error);
-      return;
-    }
-    if (matches.matches.length === 0) {
-      setStep({ kind: "results", matches: [], diagnosis: "diagnosis" in matches ? matches.diagnosis : null });
-    } else {
-      setStep({ kind: "results", matches: matches.matches, diagnosis: null });
-    }
+    router.push(`/join/candidate/${confirmed.candidateId}`);
   }
 
   function toggleCause(id: string) {
@@ -109,29 +84,6 @@ export function JoinFlow() {
 
   function toggleSkill(i: number) {
     setSkills((prev) => prev.map((s, idx) => (idx === i ? { ...s, include: !s.include } : s)));
-  }
-
-  if (step.kind === "results") {
-    return (
-      <div className="space-y-6">
-        <h1 className="font-serif text-2xl font-semibold">Boards that need you</h1>
-        {step.matches.length === 0 ? (
-          <div className="rounded-lg border border-line bg-surface p-5">
-            <p className="font-medium">No matches today</p>
-            <p className="mt-2 text-sm text-ink-muted">{step.diagnosis?.message ?? "Check back soon."}</p>
-          </div>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {step.matches.map(({ role, card }) => (
-              <RoleCard key={role.id} role={role} card={card} />
-            ))}
-          </div>
-        )}
-        <button type="button" onClick={resetAll} className="rounded-md border border-line px-4 py-2 text-sm">
-          Start over as someone else
-        </button>
-      </div>
-    );
   }
 
   if (step.kind === "review") {

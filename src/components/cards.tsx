@@ -42,17 +42,18 @@ function Why({ card, label }: { card: Card; label: string }) {
 
 export interface InteractiveActions {
   current: "interested" | "pass" | null;
+  matched: boolean;
   onInterested: () => void;
   onPass: () => void;
   pending?: boolean;
+  error?: string | null;
 }
 
 function Actions({ primary, interactive }: { primary: string; interactive?: InteractiveActions }) {
   if (!interactive) {
-    // Read-only context (e.g. /demo, a candidate's own results view): the real buttons
-    // write interests and carry the consent wording below (design §5.2), but there's no
-    // signed-in actor here to act as. See CandidateCard's `interactive` prop for the
-    // charity-side wiring that does write interests.
+    // Read-only context (e.g. /demo): the real buttons write interests and carry the
+    // consent wording below (design §5.2), but there's no signed-in actor here to act
+    // as. See the `interactive` prop on RoleCard/CandidateCard for the real wiring.
     return (
       <div className="space-y-2">
         <div className="flex flex-wrap gap-2">
@@ -69,7 +70,17 @@ function Actions({ primary, interactive }: { primary: string; interactive?: Inte
     );
   }
 
-  const { current, onInterested, onPass, pending } = interactive;
+  const { current, matched, onInterested, onPass, pending, error } = interactive;
+
+  if (matched) {
+    return (
+      <div className="rounded-md bg-covered-soft p-3 text-sm text-covered">
+        <p className="font-medium">✓ Introduced — you both said yes.</p>
+        <p className="mt-1 text-xs text-ink-muted">An introduction email went out (or was logged, if email isn&apos;t configured yet). What happens next is between you.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-2">
@@ -94,6 +105,7 @@ function Actions({ primary, interactive }: { primary: string; interactive?: Inte
           {current === "pass" ? "✓ Not for me" : "Not for me"}
         </button>
       </div>
+      {error && <p className="text-xs text-missing">{error}</p>}
       <p className="text-xs text-ink-muted">
         If they say yes too, we&apos;ll introduce you both by email and share your name, email and LinkedIn.
       </p>
@@ -102,7 +114,7 @@ function Actions({ primary, interactive }: { primary: string; interactive?: Inte
 }
 
 /** What a candidate sees: the charity is named; the board's gap and "why you". */
-export function RoleCard({ role, card }: { role: Role; card: Card }) {
+export function RoleCard({ role, card, interactive }: { role: Role; card: Card; interactive?: InteractiveActions }) {
   return (
     <article className="space-y-3 rounded-lg border border-line bg-surface p-5">
       <header className="space-y-1">
@@ -121,7 +133,7 @@ export function RoleCard({ role, card }: { role: Role; card: Card }) {
       </header>
       <SkillsGrid role={role} />
       <Why card={card} label="Why you" />
-      <Actions primary="Interested" />
+      <Actions primary="Interested" interactive={interactive} />
     </article>
   );
 }

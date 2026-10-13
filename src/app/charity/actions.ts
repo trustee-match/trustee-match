@@ -1,6 +1,7 @@
 "use server";
 
 import { CANDIDATE_SELECT, CARD_SELECT, ROLE_SELECT, toCandidate, toCard, toRole, type CandidateRow, type CardRow, type RoleRow } from "@/lib/db/mappers";
+import { clearInterest, recordInterest } from "@/lib/jobs/interest";
 import { triggerMatch } from "@/lib/jobs/trigger";
 import { diagnoseNoMatchForRole, type NoMatchDiagnosis } from "@/lib/matching/no-match-feedback";
 import type { BoardSkillCell, Candidate, Card, Role } from "@/lib/matching/types";
@@ -91,6 +92,7 @@ export interface SuggestedTrustee {
   card: Card;
   cardId: string;
   interest: "interested" | "pass" | null;
+  matched: boolean;
 }
 
 export type SuggestedTrusteesResult =
@@ -132,21 +134,26 @@ export async function getSuggestedTrustees(roleId: string): Promise<SuggestedTru
 
     const { data: interestRows } = await db
       .from("interests")
-      .select("card_id, action")
+      .select("card_id, action, status")
       .eq("role_id", roleId)
       .eq("side", "charity")
       .neq("status", "withdrawn");
-    const interestByCard = new Map((interestRows ?? []).map((i) => [i.card_id, i.action as "interested" | "pass"]));
+    const interestByCard = new Map((interestRows ?? []).map((i) => [i.card_id, { action: i.action as "interested" | "pass", matched: i.status === "matched" }]));
 
     const byCandidate = new Map(candidates.map((c) => [c.id, c]));
     const byCardId = new Map(cardRowsTyped.map((r) => [r.role_id + ":" + r.candidate_id, r.id]));
     const matches = cards
-      .map((card) => ({
-        candidate: byCandidate.get(card.candidateId)!,
-        card,
-        cardId: byCardId.get(card.roleId + ":" + card.candidateId)!,
-        interest: interestByCard.get(byCardId.get(card.roleId + ":" + card.candidateId)!) ?? null,
-      }))
+      .map((card) => {
+        const cardId = byCardId.get(card.roleId + ":" + card.candidateId)!;
+        const existing = interestByCard.get(cardId);
+        return {
+          candidate: byCandidate.get(card.candidateId)!,
+          card,
+          cardId,
+          interest: existing?.action ?? null,
+          matched: existing?.matched ?? false,
+        };
+      })
       .filter((m) => m.candidate);
     return { ok: true, role, matches };
   } catch (error) {
@@ -175,7 +182,9 @@ async function findOrCreateCharityRep(db: ReturnType<typeof createAdminClient>):
   return userId;
 }
 
-export type ToggleInterestResult = { ok: true; interest: "interested" | "pass" | null } | { ok: false; error: string };
+export type ToggleInterestResult =
+  | { ok: true; interest: "interested" | "pass" | null; matched: boolean }
+  | { ok: false; error: string; alreadyMatched?: boolean };
 
 /** Sets, changes, or clears (pass `null`) the charity side's interest in one card. */
 export async function toggleInterest(cardId: string, roleId: string, candidateId: string, action: "interested" | "pass" | null): Promise<ToggleInterestResult> {
@@ -183,26 +192,14 @@ export async function toggleInterest(cardId: string, roleId: string, candidateId
     const db = createAdminClient();
 
     if (action === null) {
-      const { error } = await db.from("interests").delete().eq("card_id", cardId).eq("side", "charity");
-      if (error) throw new Error(error.message);
-      return { ok: true, interest: null };
+      const cleared = await clearInterest(db, cardId, "charity");
+      if (!cleared.ok) return { ok: false, error: "Already introduced — can't withdraw interest after a mutual match.", alreadyMatched: true };
+      return { ok: true, interest: null, matched: false };
     }
 
     const actedBy = await findOrCreateCharityRep(db);
-    const { error } = await db.from("interests").upsert(
-      {
-        card_id: cardId,
-        role_id: roleId,
-        candidate_id: candidateId,
-        side: "charity",
-        action,
-        status: "open",
-        acted_by: actedBy,
-      },
-      { onConflict: "card_id,side" },
-    );
-    if (error) throw new Error(error.message);
-    return { ok: true, interest: action };
+    const result = await recordInterest(db, { cardId, roleId, candidateId, side: "charity", action, actedBy });
+    return { ok: true, interest: result.interest, matched: result.matched };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Unknown error updating interest" };
   }

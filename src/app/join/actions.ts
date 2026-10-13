@@ -2,6 +2,7 @@
 
 import { extractProfile, type ExtractedProfile } from "@/lib/ai/extract-profile";
 import { CARD_SELECT, ROLE_SELECT, toCandidate, toCard, toRole, type CandidateRow, type CardRow, type RoleRow } from "@/lib/db/mappers";
+import { clearInterest, recordInterest } from "@/lib/jobs/interest";
 import { triggerMatch } from "@/lib/jobs/trigger";
 import { diagnoseNoMatchForCandidate, type NoMatchDiagnosis } from "@/lib/matching/no-match-feedback";
 import type { Card, Role } from "@/lib/matching/types";
@@ -103,8 +104,16 @@ export async function confirmProfileAndMatch(input: ConfirmInput): Promise<Confi
   }
 }
 
+export interface CandidateMatch {
+  role: Role;
+  card: Card;
+  cardId: string;
+  interest: "interested" | "pass" | null;
+  matched: boolean;
+}
+
 export type MatchesResult =
-  | { ok: true; matches: { role: Role; card: Card }[] }
+  | { ok: true; matches: CandidateMatch[] }
   | { ok: true; matches: []; diagnosis: NoMatchDiagnosis }
   | { ok: false; error: string };
 
@@ -124,7 +133,8 @@ export async function getMatchesForCandidate(candidateId: string): Promise<Match
     if (rolesErr) throw new Error(rolesErr.message);
     const roles = ((roleRows ?? []) as unknown as RoleRow[]).map(toRole);
 
-    const cards = ((cardRows ?? []) as unknown as CardRow[]).map(toCard);
+    const cardRowsTyped = (cardRows ?? []) as unknown as CardRow[];
+    const cards = cardRowsTyped.map(toCard);
 
     if (cards.length === 0) {
       const { data: candRow, error: candErr } = await db
@@ -138,10 +148,49 @@ export async function getMatchesForCandidate(candidateId: string): Promise<Match
       return { ok: true, matches: [], diagnosis };
     }
 
-    const byId = new Map(roles.map((r) => [r.id, r]));
-    const matches = cards.map((card) => ({ role: byId.get(card.roleId)!, card })).filter((m) => m.role);
+    const { data: interestRows } = await db
+      .from("interests")
+      .select("card_id, action, status")
+      .eq("candidate_id", candidateId)
+      .eq("side", "candidate")
+      .neq("status", "withdrawn");
+    const interestByCard = new Map((interestRows ?? []).map((i) => [i.card_id, { action: i.action as "interested" | "pass", matched: i.status === "matched" }]));
+
+    const byRole = new Map(roles.map((r) => [r.id, r]));
+    const byCardId = new Map(cardRowsTyped.map((r) => [r.role_id + ":" + r.candidate_id, r.id]));
+    const matches = cards
+      .map((card) => {
+        const cardId = byCardId.get(card.roleId + ":" + card.candidateId)!;
+        const existing = interestByCard.get(cardId);
+        return { role: byRole.get(card.roleId)!, card, cardId, interest: existing?.action ?? null, matched: existing?.matched ?? false };
+      })
+      .filter((m) => m.role);
     return { ok: true, matches };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Unknown error loading matches" };
+  }
+}
+
+export type ToggleInterestResult =
+  | { ok: true; interest: "interested" | "pass" | null; matched: boolean }
+  | { ok: false; error: string; alreadyMatched?: boolean };
+
+/** Sets, changes, or clears (pass `null`) the candidate side's interest in one card.
+ *  Unlike the charity side, a candidate already has their own real profile id (created
+ *  at confirm time), so it acts as its own `acted_by` — no shared test account needed. */
+export async function toggleCandidateInterest(cardId: string, roleId: string, candidateId: string, action: "interested" | "pass" | null): Promise<ToggleInterestResult> {
+  try {
+    const db = createAdminClient();
+
+    if (action === null) {
+      const cleared = await clearInterest(db, cardId, "candidate");
+      if (!cleared.ok) return { ok: false, error: "Already introduced — can't withdraw interest after a mutual match.", alreadyMatched: true };
+      return { ok: true, interest: null, matched: false };
+    }
+
+    const result = await recordInterest(db, { cardId, roleId, candidateId, side: "candidate", action, actedBy: candidateId });
+    return { ok: true, interest: result.interest, matched: result.matched };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Unknown error updating interest" };
   }
 }

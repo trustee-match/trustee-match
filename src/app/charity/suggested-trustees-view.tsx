@@ -16,6 +16,7 @@ type State =
 export function SuggestedTrusteesView({ roleId }: { roleId: string }) {
   const [state, setState] = useState<State>({ kind: "loading" });
   const [pending, setPending] = useState<string | null>(null);
+  const [toggleError, setToggleError] = useState<{ cardId: string; message: string } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -36,12 +37,16 @@ export function SuggestedTrusteesView({ roleId }: { roleId: string }) {
     if (state.kind !== "loaded") return;
     const nextAction = match.interest === action ? null : action;
     setPending(match.cardId);
+    setToggleError(null);
     const result = await toggleInterest(match.cardId, roleId, match.candidate.id, nextAction);
     setPending(null);
-    if (!result.ok) return;
+    if (!result.ok) {
+      setToggleError({ cardId: match.cardId, message: result.error });
+      return;
+    }
     setState({
       ...state,
-      matches: state.matches.map((m) => (m.cardId === match.cardId ? { ...m, interest: result.interest } : m)),
+      matches: state.matches.map((m) => (m.cardId === match.cardId ? { ...m, interest: result.interest, matched: result.matched } : m)),
     });
   }
 
@@ -76,9 +81,11 @@ export function SuggestedTrusteesView({ roleId }: { roleId: string }) {
               rank={i + 1}
               interactive={{
                 current: m.interest,
+                matched: m.matched,
                 onInterested: () => handleToggle(m, "interested"),
                 onPass: () => handleToggle(m, "pass"),
                 pending: pending === m.cardId,
+                error: toggleError?.cardId === m.cardId ? toggleError.message : null,
               }}
             />
           ))}
