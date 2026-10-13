@@ -62,6 +62,36 @@ export async function clearInterest(db: SupabaseClient, cardId: string, side: Si
   return { ok: true };
 }
 
+export interface Contact {
+  name: string;
+  email: string | null;
+}
+
+/** A candidate's real, revealable identity — their own profile name + their real email. */
+export async function getCandidateContact(db: SupabaseClient, candidateId: string): Promise<Contact> {
+  const [{ data: profile }, { data: user }] = await Promise.all([
+    db.from("profiles").select("display_name").eq("id", candidateId).single(),
+    db.auth.admin.getUserById(candidateId),
+  ]);
+  return { name: profile?.display_name ?? "This candidate", email: user?.user?.email ?? null };
+}
+
+/** A charity's real contact, via org_members — null if no member is actually linked to
+ *  this organisation (true for every seeded pilot org right now: nothing in `/charity`'s
+ *  flow creates an org_members row, so there's no genuine per-charity contact to reveal
+ *  yet, only the shared test account used to act on the charity's behalf). Deliberately
+ *  does not fall back to that shared account here — presenting "Charity tester" as if it
+ *  were a named person would misrepresent a known gap as resolved. */
+export async function getCharityContact(db: SupabaseClient, organisationId: string): Promise<Contact | null> {
+  const { data: orgMembers } = await db.from("org_members").select("user_id").eq("organisation_id", organisationId).limit(1);
+  if (!orgMembers || orgMembers.length === 0) return null;
+  const [{ data: profile }, { data: user }] = await Promise.all([
+    db.from("profiles").select("display_name").eq("id", orgMembers[0].user_id).single(),
+    db.auth.admin.getUserById(orgMembers[0].user_id),
+  ]);
+  return { name: profile?.display_name ?? "This charity's contact", email: user?.user?.email ?? null };
+}
+
 async function createIntroduction(db: SupabaseClient, roleId: string, candidateId: string, cardId: string): Promise<void> {
   // Guard against double-creation if this races with a cron sweep or a double click.
   const { data: already } = await db.from("matches").select("id").eq("role_id", roleId).eq("candidate_id", candidateId).maybeSingle();
@@ -73,24 +103,15 @@ async function createIntroduction(db: SupabaseClient, roleId: string, candidateI
   const { data: roleRow } = await db.from("roles").select(ROLE_SELECT).eq("id", roleId).single();
   const role = toRole(roleRow as unknown as RoleRow);
 
-  const { data: candUser } = await db.auth.admin.getUserById(candidateId);
-  const candidateEmail = candUser?.user?.email ?? null;
-  const candidateName = (candUser?.user?.user_metadata?.display_name as string | undefined) ?? "the candidate";
+  const [candidateContact, charityContact] = await Promise.all([getCandidateContact(db, candidateId), getCharityContact(db, role.organisationId)]);
 
-  const { data: orgMembers } = await db.from("org_members").select("user_id").eq("organisation_id", role.organisationId).limit(1);
-  let charityEmail: string | null = null;
-  if (orgMembers && orgMembers.length > 0) {
-    const { data: charityUser } = await db.auth.admin.getUserById(orgMembers[0].user_id);
-    charityEmail = charityUser?.user?.email ?? null;
-  }
-
-  const recipients = [candidateEmail, charityEmail].filter((e): e is string => Boolean(e));
+  const recipients = [candidateContact.email, charityContact?.email ?? null].filter((e): e is string => Boolean(e));
   let introEmailId: string | null = null;
   if (recipients.length > 0) {
     introEmailId = await sendEmail({
       to: recipients,
       subject: `You've matched: ${role.title} at ${role.organisationName}`,
-      text: `${candidateName} and ${role.organisationName} have both said yes to ${role.title}. Most people start with a 30-minute coffee — over to you both to arrange.`,
+      text: `${candidateContact.name} and ${role.organisationName} have both said yes to ${role.title}. Most people start with a 30-minute coffee — over to you both to arrange.`,
     });
   }
 

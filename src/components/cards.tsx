@@ -1,4 +1,5 @@
 import { causeLabel, skillLabel } from "@/lib/config";
+import type { Contact } from "@/lib/jobs/interest";
 import type { Card, Candidate, Coverage, Role } from "@/lib/matching/types";
 
 const coverageStyle: Record<Coverage, string> = {
@@ -43,6 +44,7 @@ function Why({ card, label }: { card: Card; label: string }) {
 export interface InteractiveActions {
   current: "interested" | "pass" | null;
   matched: boolean;
+  matchedContact?: Contact | null;
   onInterested: () => void;
   onPass: () => void;
   pending?: boolean;
@@ -70,13 +72,29 @@ function Actions({ primary, interactive }: { primary: string; interactive?: Inte
     );
   }
 
-  const { current, matched, onInterested, onPass, pending, error } = interactive;
+  const { current, matched, matchedContact, onInterested, onPass, pending, error } = interactive;
 
   if (matched) {
     return (
       <div className="rounded-md bg-covered-soft p-3 text-sm text-covered">
         <p className="font-medium">✓ Introduced — you both said yes.</p>
-        <p className="mt-1 text-xs text-ink-muted">An introduction email went out (or was logged, if email isn&apos;t configured yet). What happens next is between you.</p>
+        {matchedContact ? (
+          <p className="mt-1">
+            {matchedContact.name}
+            {matchedContact.email ? (
+              <>
+                {" "}
+                ·{" "}
+                <a href={`mailto:${matchedContact.email}`} className="underline">
+                  {matchedContact.email}
+                </a>
+              </>
+            ) : null}
+          </p>
+        ) : (
+          <p className="mt-1 text-xs text-ink-muted">No contact on file yet for this side — check back here, or look out for the introduction email.</p>
+        )}
+        <p className="mt-1 text-xs text-ink-muted">An introduction email went out too (or was logged, if email isn&apos;t configured yet). What happens next is between you.</p>
       </div>
     );
   }

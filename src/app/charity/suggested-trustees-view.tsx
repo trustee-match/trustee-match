@@ -44,6 +44,15 @@ export function SuggestedTrusteesView({ roleId }: { roleId: string }) {
       setToggleError({ cardId: match.cardId, message: result.error });
       return;
     }
+    if (result.matched && !match.matched) {
+      // Just became a mutual match — refetch so the candidate's contact details (not
+      // known client-side) come through on the card rather than showing as empty.
+      const refreshed = await getSuggestedTrustees(roleId);
+      if (refreshed.ok) {
+        setState({ kind: "loaded", role: refreshed.role, matches: refreshed.matches, diagnosis: "diagnosis" in refreshed ? refreshed.diagnosis : null });
+        return;
+      }
+    }
     setState({
       ...state,
       matches: state.matches.map((m) => (m.cardId === match.cardId ? { ...m, interest: result.interest, matched: result.matched } : m)),
@@ -82,6 +91,7 @@ export function SuggestedTrusteesView({ roleId }: { roleId: string }) {
               interactive={{
                 current: m.interest,
                 matched: m.matched,
+                matchedContact: m.matchedContact,
                 onInterested: () => handleToggle(m, "interested"),
                 onPass: () => handleToggle(m, "pass"),
                 pending: pending === m.cardId,

@@ -1,7 +1,7 @@
 "use server";
 
 import { CANDIDATE_SELECT, CARD_SELECT, ROLE_SELECT, toCandidate, toCard, toRole, type CandidateRow, type CardRow, type RoleRow } from "@/lib/db/mappers";
-import { clearInterest, recordInterest } from "@/lib/jobs/interest";
+import { clearInterest, getCandidateContact, recordInterest, type Contact } from "@/lib/jobs/interest";
 import { triggerMatch } from "@/lib/jobs/trigger";
 import { diagnoseNoMatchForRole, type NoMatchDiagnosis } from "@/lib/matching/no-match-feedback";
 import type { BoardSkillCell, Candidate, Card, Role } from "@/lib/matching/types";
@@ -93,6 +93,10 @@ export interface SuggestedTrustee {
   cardId: string;
   interest: "interested" | "pass" | null;
   matched: boolean;
+  /** The candidate's real name/email, revealed once matched. Always populated when
+   *  matched — unlike the charity-side contact a candidate sees, a candidate's own
+   *  profile and real email always exist once they've confirmed via /join. */
+  matchedContact: Contact | null;
 }
 
 export type SuggestedTrusteesResult =
@@ -142,19 +146,22 @@ export async function getSuggestedTrustees(roleId: string): Promise<SuggestedTru
 
     const byCandidate = new Map(candidates.map((c) => [c.id, c]));
     const byCardId = new Map(cardRowsTyped.map((r) => [r.role_id + ":" + r.candidate_id, r.id]));
-    const matches = cards
-      .map((card) => {
-        const cardId = byCardId.get(card.roleId + ":" + card.candidateId)!;
-        const existing = interestByCard.get(cardId);
-        return {
-          candidate: byCandidate.get(card.candidateId)!,
-          card,
-          cardId,
-          interest: existing?.action ?? null,
-          matched: existing?.matched ?? false,
-        };
-      })
-      .filter((m) => m.candidate);
+    const matches = await Promise.all(
+      cards
+        .map((card) => {
+          const cardId = byCardId.get(card.roleId + ":" + card.candidateId)!;
+          const existing = interestByCard.get(cardId);
+          return {
+            candidate: byCandidate.get(card.candidateId)!,
+            card,
+            cardId,
+            interest: existing?.action ?? null,
+            matched: existing?.matched ?? false,
+          };
+        })
+        .filter((m) => m.candidate)
+        .map(async (m) => ({ ...m, matchedContact: m.matched ? await getCandidateContact(db, m.candidate.id) : null })),
+    );
     return { ok: true, role, matches };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Unknown error loading suggested trustees" };

@@ -2,7 +2,7 @@
 
 import { extractProfile, type ExtractedProfile } from "@/lib/ai/extract-profile";
 import { CARD_SELECT, ROLE_SELECT, toCandidate, toCard, toRole, type CandidateRow, type CardRow, type RoleRow } from "@/lib/db/mappers";
-import { clearInterest, recordInterest } from "@/lib/jobs/interest";
+import { clearInterest, getCharityContact, recordInterest, type Contact } from "@/lib/jobs/interest";
 import { triggerMatch } from "@/lib/jobs/trigger";
 import { diagnoseNoMatchForCandidate, type NoMatchDiagnosis } from "@/lib/matching/no-match-feedback";
 import type { Card, Role } from "@/lib/matching/types";
@@ -110,6 +110,10 @@ export interface CandidateMatch {
   cardId: string;
   interest: "interested" | "pass" | null;
   matched: boolean;
+  /** The charity contact's real name/email, revealed once matched — null if no real
+   *  org_members contact is linked yet (true for every seeded pilot org right now; see
+   *  getCharityContact in lib/jobs/interest.ts). */
+  matchedContact: Contact | null;
 }
 
 export type MatchesResult =
@@ -158,13 +162,16 @@ export async function getMatchesForCandidate(candidateId: string): Promise<Match
 
     const byRole = new Map(roles.map((r) => [r.id, r]));
     const byCardId = new Map(cardRowsTyped.map((r) => [r.role_id + ":" + r.candidate_id, r.id]));
-    const matches = cards
-      .map((card) => {
-        const cardId = byCardId.get(card.roleId + ":" + card.candidateId)!;
-        const existing = interestByCard.get(cardId);
-        return { role: byRole.get(card.roleId)!, card, cardId, interest: existing?.action ?? null, matched: existing?.matched ?? false };
-      })
-      .filter((m) => m.role);
+    const matches = await Promise.all(
+      cards
+        .map((card) => {
+          const cardId = byCardId.get(card.roleId + ":" + card.candidateId)!;
+          const existing = interestByCard.get(cardId);
+          return { role: byRole.get(card.roleId)!, card, cardId, interest: existing?.action ?? null, matched: existing?.matched ?? false };
+        })
+        .filter((m) => m.role)
+        .map(async (m) => ({ ...m, matchedContact: m.matched ? await getCharityContact(db, m.role.organisationId) : null })),
+    );
     return { ok: true, matches };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Unknown error loading matches" };
