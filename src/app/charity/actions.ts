@@ -1,5 +1,6 @@
 "use server";
 
+import { findOrCreateAuthUser, upsertProfileWithoutDowngrading } from "@/lib/auth/shadow-user";
 import { CANDIDATE_SELECT, CARD_SELECT, ROLE_SELECT, toCandidate, toCard, toRole, type CandidateRow, type CardRow, type RoleRow } from "@/lib/db/mappers";
 import { clearInterest, getCandidateContact, recordInterest, type Contact } from "@/lib/jobs/interest";
 import { triggerMatch } from "@/lib/jobs/trigger";
@@ -16,6 +17,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export interface RoleInput {
   orgName: string;
+  contactName: string;
+  contactEmail: string;
   title: string;
   cause: string;
   purpose: string;
@@ -39,9 +42,22 @@ async function findOrCreateOrg(db: ReturnType<typeof createAdminClient>, name: s
   return created.id;
 }
 
+/** Links the person publishing a role to their organisation as a real, named contact —
+ *  whoever a matched candidate sees via getCharityContact (lib/jobs/interest.ts), replacing
+ *  the no-contact gap that existed before any org_members row was ever created. Idempotent:
+ *  re-publishing another role for the same org and email just confirms the existing link. */
+async function linkOrgContact(db: ReturnType<typeof createAdminClient>, organisationId: string, email: string, name: string): Promise<void> {
+  const userId = await findOrCreateAuthUser(db, email, name);
+  await upsertProfileWithoutDowngrading(db, userId, "board_contact", name);
+  const { error } = await db.from("org_members").upsert({ organisation_id: organisationId, user_id: userId }, { onConflict: "organisation_id,user_id", ignoreDuplicates: true });
+  if (error) throw new Error(`org_members upsert failed: ${error.message}`);
+}
+
 export async function publishRoleAndMatch(input: RoleInput): Promise<PublishResult> {
   try {
     if (!input.orgName.trim()) return { ok: false, error: "Enter your charity's name." };
+    if (!input.contactName.trim()) return { ok: false, error: "Enter a contact name — yours or a colleague's. This is who we'll reveal to a matched candidate." };
+    if (!input.contactEmail.trim()) return { ok: false, error: "Enter a contact email." };
     if (!input.title.trim()) return { ok: false, error: "Give the role a title." };
     if (!input.purpose.trim()) return { ok: false, error: "Add a short purpose — what does your charity do?" };
     if (input.hoursPerMonth <= 0) return { ok: false, error: "Hours per month must be more than 0." };
@@ -53,6 +69,7 @@ export async function publishRoleAndMatch(input: RoleInput): Promise<PublishResu
 
     const db = createAdminClient();
     const organisationId = await findOrCreateOrg(db, input.orgName);
+    await linkOrgContact(db, organisationId, input.contactEmail.trim(), input.contactName.trim());
 
     const boardSkills: BoardSkillCell[] = [
       ...input.missingSkills.map((skill) => ({ skill, coverage: "missing" as const })),

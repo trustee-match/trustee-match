@@ -77,13 +77,16 @@ export async function getCandidateContact(db: SupabaseClient, candidateId: strin
 }
 
 /** A charity's real contact, via org_members — null if no member is actually linked to
- *  this organisation (true for every seeded pilot org right now: nothing in `/charity`'s
- *  flow creates an org_members row, so there's no genuine per-charity contact to reveal
- *  yet, only the shared test account used to act on the charity's behalf). Deliberately
- *  does not fall back to that shared account here — presenting "Charity tester" as if it
- *  were a named person would misrepresent a known gap as resolved. */
+ *  this organisation. Ordered by `created_at` ascending so the earliest-added member
+ *  (normally whoever first published a role for that organisation) is treated as the
+ *  contact when more than one exists, rather than an arbitrary row order. */
 export async function getCharityContact(db: SupabaseClient, organisationId: string): Promise<Contact | null> {
-  const { data: orgMembers } = await db.from("org_members").select("user_id").eq("organisation_id", organisationId).limit(1);
+  const { data: orgMembers } = await db
+    .from("org_members")
+    .select("user_id")
+    .eq("organisation_id", organisationId)
+    .order("created_at", { ascending: true })
+    .limit(1);
   if (!orgMembers || orgMembers.length === 0) return null;
   const [{ data: profile }, { data: user }] = await Promise.all([
     db.from("profiles").select("display_name").eq("id", orgMembers[0].user_id).single(),

@@ -1,6 +1,7 @@
 "use server";
 
 import { extractProfile, type ExtractedProfile } from "@/lib/ai/extract-profile";
+import { findOrCreateAuthUser, upsertProfileWithoutDowngrading } from "@/lib/auth/shadow-user";
 import { CARD_SELECT, ROLE_SELECT, toCandidate, toCard, toRole, type CandidateRow, type CardRow, type RoleRow } from "@/lib/db/mappers";
 import { clearInterest, getCharityContact, recordInterest, type Contact } from "@/lib/jobs/interest";
 import { triggerMatch } from "@/lib/jobs/trigger";
@@ -42,24 +43,11 @@ export interface ConfirmInput {
 
 export type ConfirmResult = { ok: true; candidateId: string } | { ok: false; error: string };
 
-async function findOrCreateAuthUser(db: ReturnType<typeof createAdminClient>, email: string, displayName: string): Promise<string> {
-  const { data: created, error } = await db.auth.admin.createUser({ email, email_confirm: true, user_metadata: { display_name: displayName } });
-  if (!error && created.user) return created.user.id;
-
-  const { data: list, error: listError } = await db.auth.admin.listUsers({ page: 1, perPage: 200 });
-  if (listError) throw new Error(listError.message);
-  const found = list.users.find((u) => u.email === email);
-  if (found) return found.id;
-  throw new Error(error?.message ?? `Could not create or find a test user for ${email}`);
-}
-
 export async function confirmProfileAndMatch(input: ConfirmInput): Promise<ConfirmResult> {
   try {
     const db = createAdminClient();
     const userId = await findOrCreateAuthUser(db, input.email, input.name);
-
-    const { error: profileErr } = await db.from("profiles").upsert({ id: userId, kind: "candidate", display_name: input.name });
-    if (profileErr) throw new Error(`profiles upsert failed: ${profileErr.message}`);
+    await upsertProfileWithoutDowngrading(db, userId, "candidate", input.name);
 
     const conflictIds: string[] = [];
     for (const raw of input.conflictOrgNames) {

@@ -13,6 +13,8 @@ export function CharityFlow() {
   const [error, setError] = useState<string | null>(null);
 
   const [orgName, setOrgName] = useState("");
+  const [contactName, setContactName] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
   const [title, setTitle] = useState("");
   const [cause, setCause] = useState(CAUSES[0].id);
   const [purpose, setPurpose] = useState("");
@@ -41,6 +43,8 @@ export function CharityFlow() {
 
     const published = await publishRoleAndMatch({
       orgName,
+      contactName,
+      contactEmail,
       title,
       cause,
       purpose,
@@ -64,8 +68,8 @@ export function CharityFlow() {
     <div className="max-w-2xl space-y-6">
       <h1 className="font-serif text-3xl font-semibold">Find the trustee your board is missing</h1>
       <p className="text-ink-muted">
-        Internal test harness: no sign-in yet, just your charity&apos;s name. Describe the role and mark which skills
-        your board is missing or thin on, then publish to see who it suggests.
+        Internal test harness: no sign-in yet, just your charity&apos;s name and a contact. Describe the role and
+        mark which skills your board is missing or thin on, then publish to see who it suggests.
       </p>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -78,6 +82,20 @@ export function CharityFlow() {
           <input value={title} onChange={(e) => setTitle(e.target.value)} className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm" placeholder="e.g. Treasurer" />
         </label>
       </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <label className="block space-y-1">
+          <span className="text-sm font-medium">Contact name</span>
+          <input value={contactName} onChange={(e) => setContactName(e.target.value)} className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm" placeholder="You, or a colleague handling this" />
+        </label>
+        <label className="block space-y-1">
+          <span className="text-sm font-medium">Contact email</span>
+          <input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm" placeholder="e.g. treasurer@yourcharity.gg" />
+        </label>
+      </div>
+      <p className="text-xs text-ink-muted">
+        This is who we&apos;ll reveal to a trustee once you both say yes — not shown to anyone before then.
+      </p>
 
       <label className="block space-y-1">
         <span className="text-sm font-medium">Cause</span>
