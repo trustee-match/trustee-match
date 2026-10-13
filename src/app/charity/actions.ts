@@ -3,7 +3,7 @@
 import { CANDIDATE_SELECT, CARD_SELECT, ROLE_SELECT, toCandidate, toCard, toRole, type CandidateRow, type CardRow, type RoleRow } from "@/lib/db/mappers";
 import { triggerMatch } from "@/lib/jobs/trigger";
 import { diagnoseNoMatchForRole, type NoMatchDiagnosis } from "@/lib/matching/no-match-feedback";
-import type { BoardSkillCell, Candidate, Card } from "@/lib/matching/types";
+import type { BoardSkillCell, Candidate, Card, Role } from "@/lib/matching/types";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 // Internal test-harness actions for the pilot charity side, mirroring src/app/join/actions.ts.
@@ -86,9 +86,16 @@ export async function publishRoleAndMatch(input: RoleInput): Promise<PublishResu
   }
 }
 
+export interface SuggestedTrustee {
+  candidate: Candidate;
+  card: Card;
+  cardId: string;
+  interest: "interested" | "pass" | null;
+}
+
 export type SuggestedTrusteesResult =
-  | { ok: true; matches: { candidate: Candidate; card: Card }[] }
-  | { ok: true; matches: []; diagnosis: NoMatchDiagnosis }
+  | { ok: true; role: Role; matches: SuggestedTrustee[] }
+  | { ok: true; role: Role; matches: []; diagnosis: NoMatchDiagnosis }
   | { ok: false; error: string };
 
 export async function getSuggestedTrustees(roleId: string): Promise<SuggestedTrusteesResult> {
@@ -106,7 +113,8 @@ export async function getSuggestedTrustees(roleId: string): Promise<SuggestedTru
       .eq("hidden", false)
       .order("score", { ascending: false });
     if (cardsErr) throw new Error(cardsErr.message);
-    const cards = ((cardRows ?? []) as unknown as CardRow[]).map(toCard);
+    const cardRowsTyped = (cardRows ?? []) as unknown as CardRow[];
+    const cards = cardRowsTyped.map(toCard);
 
     const { data: candRows, error: candErr } = await db
       .from("candidates")
@@ -119,13 +127,83 @@ export async function getSuggestedTrustees(roleId: string): Promise<SuggestedTru
 
     if (cards.length === 0) {
       const diagnosis = diagnoseNoMatchForRole(role, candidates);
-      return { ok: true, matches: [], diagnosis };
+      return { ok: true, role, matches: [], diagnosis };
     }
 
-    const byId = new Map(candidates.map((c) => [c.id, c]));
-    const matches = cards.map((card) => ({ candidate: byId.get(card.candidateId)!, card })).filter((m) => m.candidate);
-    return { ok: true, matches };
+    const { data: interestRows } = await db
+      .from("interests")
+      .select("card_id, action")
+      .eq("role_id", roleId)
+      .eq("side", "charity")
+      .neq("status", "withdrawn");
+    const interestByCard = new Map((interestRows ?? []).map((i) => [i.card_id, i.action as "interested" | "pass"]));
+
+    const byCandidate = new Map(candidates.map((c) => [c.id, c]));
+    const byCardId = new Map(cardRowsTyped.map((r) => [r.role_id + ":" + r.candidate_id, r.id]));
+    const matches = cards
+      .map((card) => ({
+        candidate: byCandidate.get(card.candidateId)!,
+        card,
+        cardId: byCardId.get(card.roleId + ":" + card.candidateId)!,
+        interest: interestByCard.get(byCardId.get(card.roleId + ":" + card.candidateId)!) ?? null,
+      }))
+      .filter((m) => m.candidate);
+    return { ok: true, role, matches };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Unknown error loading suggested trustees" };
+  }
+}
+
+// One shared, fixed test "board contact" profile for all charity-side interest actions in
+// this preview — there's no real per-charity-rep sign-in yet (see Security entry in
+// planning/responsible-design-decisions.md), and `interests.acted_by` needs a real profile
+// id. Not who actually expressed the interest in a real sense, just a valid FK.
+async function findOrCreateCharityRep(db: ReturnType<typeof createAdminClient>): Promise<string> {
+  const EMAIL = "charity-tester@test.local";
+  const { data: created, error } = await db.auth.admin.createUser({ email: EMAIL, email_confirm: true });
+  let userId: string;
+  if (!error && created.user) {
+    userId = created.user.id;
+  } else {
+    const { data: list, error: listError } = await db.auth.admin.listUsers({ page: 1, perPage: 200 });
+    if (listError) throw new Error(listError.message);
+    const found = list.users.find((u) => u.email === EMAIL);
+    if (!found) throw new Error("Could not create or find the shared charity-tester account");
+    userId = found.id;
+  }
+  await db.from("profiles").upsert({ id: userId, kind: "board_contact", display_name: "Charity tester" });
+  return userId;
+}
+
+export type ToggleInterestResult = { ok: true; interest: "interested" | "pass" | null } | { ok: false; error: string };
+
+/** Sets, changes, or clears (pass `null`) the charity side's interest in one card. */
+export async function toggleInterest(cardId: string, roleId: string, candidateId: string, action: "interested" | "pass" | null): Promise<ToggleInterestResult> {
+  try {
+    const db = createAdminClient();
+
+    if (action === null) {
+      const { error } = await db.from("interests").delete().eq("card_id", cardId).eq("side", "charity");
+      if (error) throw new Error(error.message);
+      return { ok: true, interest: null };
+    }
+
+    const actedBy = await findOrCreateCharityRep(db);
+    const { error } = await db.from("interests").upsert(
+      {
+        card_id: cardId,
+        role_id: roleId,
+        candidate_id: candidateId,
+        side: "charity",
+        action,
+        status: "open",
+        acted_by: actedBy,
+      },
+      { onConflict: "card_id,side" },
+    );
+    if (error) throw new Error(error.message);
+    return { ok: true, interest: action };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Unknown error updating interest" };
   }
 }

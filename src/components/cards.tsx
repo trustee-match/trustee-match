@@ -40,16 +40,59 @@ function Why({ card, label }: { card: Card; label: string }) {
   );
 }
 
-function Actions({ primary }: { primary: string }) {
-  // Demo only: the real buttons write interests and carry the consent wording (design §5.2).
+export interface InteractiveActions {
+  current: "interested" | "pass" | null;
+  onInterested: () => void;
+  onPass: () => void;
+  pending?: boolean;
+}
+
+function Actions({ primary, interactive }: { primary: string; interactive?: InteractiveActions }) {
+  if (!interactive) {
+    // Read-only context (e.g. /demo, a candidate's own results view): the real buttons
+    // write interests and carry the consent wording below (design §5.2), but there's no
+    // signed-in actor here to act as. See CandidateCard's `interactive` prop for the
+    // charity-side wiring that does write interests.
+    return (
+      <div className="space-y-2">
+        <div className="flex flex-wrap gap-2">
+          <button disabled className="rounded-md bg-sea px-4 py-2 text-sm font-medium text-white opacity-90 dark:text-bg">
+            {primary}
+          </button>
+          <button disabled className="rounded-md border border-line px-4 py-2 text-sm">Not for me</button>
+          <button disabled className="rounded-md border border-line px-4 py-2 text-sm">Save</button>
+        </div>
+        <p className="text-xs text-ink-muted">
+          If they say yes too, we&apos;ll introduce you both by email and share your name, email and LinkedIn.
+        </p>
+      </div>
+    );
+  }
+
+  const { current, onInterested, onPass, pending } = interactive;
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-2">
-        <button disabled className="rounded-md bg-sea px-4 py-2 text-sm font-medium text-white opacity-90 dark:text-bg">
-          {primary}
+        <button
+          type="button"
+          onClick={onInterested}
+          disabled={pending}
+          className={`rounded-md px-4 py-2 text-sm font-medium disabled:opacity-50 ${
+            current === "interested" ? "bg-sea text-white dark:text-bg" : "border border-line text-ink hover:bg-sea-soft"
+          }`}
+        >
+          {current === "interested" ? `✓ ${primary}d` : primary}
         </button>
-        <button disabled className="rounded-md border border-line px-4 py-2 text-sm">Not for me</button>
-        <button disabled className="rounded-md border border-line px-4 py-2 text-sm">Save</button>
+        <button
+          type="button"
+          onClick={onPass}
+          disabled={pending}
+          className={`rounded-md px-4 py-2 text-sm disabled:opacity-50 ${
+            current === "pass" ? "bg-missing text-white" : "border border-line text-ink-muted hover:bg-missing-soft"
+          }`}
+        >
+          {current === "pass" ? "✓ Not for me" : "Not for me"}
+        </button>
       </div>
       <p className="text-xs text-ink-muted">
         If they say yes too, we&apos;ll introduce you both by email and share your name, email and LinkedIn.
@@ -84,7 +127,17 @@ export function RoleCard({ role, card }: { role: Role; card: Card }) {
 }
 
 /** What a charity sees: skills and evidence only. No name, employer or photo. */
-export function CandidateCard({ candidate, card, rank }: { candidate: Candidate; card: Card; rank: number }) {
+export function CandidateCard({
+  candidate,
+  card,
+  rank,
+  interactive,
+}: {
+  candidate: Candidate;
+  card: Card;
+  rank: number;
+  interactive?: InteractiveActions;
+}) {
   return (
     <article className="space-y-3 rounded-lg border border-line bg-surface p-5">
       <header className="flex items-start justify-between gap-3">
@@ -107,7 +160,7 @@ export function CandidateCard({ candidate, card, rank }: { candidate: Candidate;
         ))}
       </ul>
       <Why card={card} label="Why this person" />
-      <Actions primary="Invite" />
+      <Actions primary="Invite" interactive={interactive} />
     </article>
   );
 }

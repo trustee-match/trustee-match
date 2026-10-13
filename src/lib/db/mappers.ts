@@ -80,6 +80,7 @@ export function toCandidate(
 }
 
 export interface CardRow {
+  id: string;
   role_id: string;
   candidate_id: string;
   score: number;
@@ -90,7 +91,7 @@ export interface CardRow {
   source: Card["source"];
 }
 
-export const CARD_SELECT = "role_id, candidate_id, score, ai_rank, confidence, reasons, considerations, source";
+export const CARD_SELECT = "id, role_id, candidate_id, score, ai_rank, confidence, reasons, considerations, source";
 
 export function toCard(row: CardRow): Card {
   return {

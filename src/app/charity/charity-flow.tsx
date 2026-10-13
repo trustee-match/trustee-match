@@ -1,20 +1,14 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { CandidateCard } from "@/components/cards";
 import { CAUSES, SKILLS } from "@/lib/config";
-import type { Candidate, Card } from "@/lib/matching/types";
-import type { NoMatchDiagnosis } from "@/lib/matching/no-match-feedback";
-import { getSuggestedTrustees, publishRoleAndMatch } from "./actions";
+import { publishRoleAndMatch } from "./actions";
 
 type Gap = "missing" | "thin" | null;
 
-type Step =
-  | { kind: "form" }
-  | { kind: "results"; matches: { candidate: Candidate; card: Card }[]; diagnosis: NoMatchDiagnosis | null };
-
 export function CharityFlow() {
-  const [step, setStep] = useState<Step>({ kind: "form" });
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,20 +23,6 @@ export function CharityFlow() {
   const [skillState, setSkillState] = useState<Record<string, { gap: Gap; mustHave: boolean }>>(
     () => Object.fromEntries(SKILLS.map((s) => [s.id, { gap: null, mustHave: false }])),
   );
-
-  function resetAll() {
-    setStep({ kind: "form" });
-    setError(null);
-    setOrgName("");
-    setTitle("");
-    setCause(CAUSES[0].id);
-    setPurpose("");
-    setHoursPerMonth(5);
-    setMeetingPattern("");
-    setInduction("");
-    setDiversityPreference(null);
-    setSkillState(Object.fromEntries(SKILLS.map((s) => [s.id, { gap: null, mustHave: false }])));
-  }
 
   function setGap(skillId: string, gap: Gap) {
     setSkillState((prev) => ({ ...prev, [skillId]: { ...prev[skillId], gap: prev[skillId].gap === gap ? null : gap } }));
@@ -77,40 +57,7 @@ export function CharityFlow() {
       setError(published.error);
       return;
     }
-    const matches = await getSuggestedTrustees(published.roleId);
-    setLoading(false);
-    if (!matches.ok) {
-      setError(matches.error);
-      return;
-    }
-    if (matches.matches.length === 0) {
-      setStep({ kind: "results", matches: [], diagnosis: "diagnosis" in matches ? matches.diagnosis : null });
-    } else {
-      setStep({ kind: "results", matches: matches.matches, diagnosis: null });
-    }
-  }
-
-  if (step.kind === "results") {
-    return (
-      <div className="space-y-6">
-        <h1 className="font-serif text-2xl font-semibold">Suggested trustees</h1>
-        {step.matches.length === 0 ? (
-          <div className="rounded-lg border border-line bg-surface p-5">
-            <p className="font-medium">No suggestions today</p>
-            <p className="mt-2 text-sm text-ink-muted">{step.diagnosis?.message ?? "Check back soon."}</p>
-          </div>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {step.matches.map(({ candidate, card }, i) => (
-              <CandidateCard key={candidate.id} candidate={candidate} card={card} rank={i + 1} />
-            ))}
-          </div>
-        )}
-        <button type="button" onClick={resetAll} className="rounded-md border border-line px-4 py-2 text-sm">
-          Publish another role
-        </button>
-      </div>
-    );
+    router.push(`/charity/role/${published.roleId}`);
   }
 
   return (

@@ -47,3 +47,6 @@ data/candidates-private/
 # Machine-specific; private planning repo lives here as its own git repo
 .claude/
 planning/
+
+# Local Netlify folder
+.netlify
