@@ -21,7 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               Trustee Match
             </Link>
             <div className="flex gap-4 text-sm text-ink-muted">
-              <Link href="/demo" className="hover:text-ink">Demo</Link>
+              <Link href="/demo" className="hover:text-ink">All profiles</Link>
               <Link href="/join" className="hover:text-ink">Become a trustee</Link>
               <Link href="/charity" className="hover:text-ink">For charities</Link>
             </div>

@@ -38,7 +38,8 @@ export default function Home() {
       </section>
 
       <p className="text-sm text-ink-muted">
-        See it working on made-up data: <Link href="/demo" className="text-sea underline">open the demo</Link>.
+        Browse every test candidate and charity currently in the system:{" "}
+        <Link href="/demo" className="text-sea underline">all profiles</Link>.
       </p>
     </div>
   );

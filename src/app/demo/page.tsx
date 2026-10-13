@@ -1,73 +1,164 @@
 import type { Metadata } from "next";
-import { CandidateCard, RoleCard, SkillsGrid } from "@/components/cards";
-import { DEMO_CANDIDATES, DEMO_ROLES } from "@/lib/demo";
-import { provisionalCard, rankCandidatesForRole, rankRolesForCandidate } from "@/lib/matching/engine";
-import { MATCHING } from "@/lib/config";
+import Link from "next/link";
+import { Suspense } from "react";
+import { causeLabel } from "@/lib/config";
+import { createAdminClient } from "@/lib/supabase/admin";
 
-export const metadata: Metadata = { title: "Demo · Trustee Match" };
+export const metadata: Metadata = { title: "All profiles · Trustee Match" };
 
-// Rules-only matching on synthetic data: what users see in the first second after
-// publishing, before the AI step upgrades the explanations. Fixed date keeps it deterministic.
-const DEMO_NOW = new Date("2026-10-08T12:00:00Z");
+// A live index of every candidate and charity role currently in the database — the
+// thing to come back to as test data changes shape, and the hub for giving someone a
+// guided tour without hunting for individual links. Replaces the old /demo route, which
+// showed fixed synthetic data (src/lib/demo.ts) rather than anything real; that fixture
+// data still exists and is still used by the matching engine's unit tests, just no
+// longer shown here. See planning/responsible-design-decisions.md (Privacy) for why an
+// aggregated, real-name index like this is an internal/test-only page, not a pattern the
+// real product should ever expose.
 
-export default function DemoPage() {
-  const sam = DEMO_CANDIDATES.find((c) => c.id === "cand-fund-accountant")!;
-  const samRoles = rankRolesForCandidate(sam, DEMO_ROLES, { now: DEMO_NOW }).slice(0, MATCHING.thresholds.candidate_deck_size);
+interface CandidateRow {
+  id: string;
+  display_name: string | null;
+  headline: string | null;
+  hours_per_month: number;
+  causes: string[];
+  confirmed_at: string | null;
+}
 
-  const youth = DEMO_ROLES.find((r) => r.id === "role-youth-finance")!;
-  const youthCandidates = rankCandidatesForRole(youth, DEMO_CANDIDATES, { now: DEMO_NOW, discoverableOnly: true });
+interface RoleRow {
+  id: string;
+  title: string;
+  org_name: string;
+  contact_name: string | null;
+  hours_per_month: number;
+  cause: string;
+  status: string;
+  published_at: string | null;
+}
+
+async function loadData() {
+  const db = createAdminClient();
+
+  const [{ data: candidateRows }, { data: profileRows }, { data: userList }] = await Promise.all([
+    db.from("candidates").select("id, headline, hours_per_month, causes, confirmed_at").order("confirmed_at", { ascending: false }),
+    db.from("profiles").select("id, display_name"),
+    db.auth.admin.listUsers({ page: 1, perPage: 200 }),
+  ]);
+  const nameById = new Map((profileRows ?? []).map((p) => [p.id, p.display_name]));
+  const emailById = new Map(userList?.users.map((u) => [u.id, u.email ?? null]) ?? []);
+
+  const candidates: (CandidateRow & { email: string | null })[] = (candidateRows ?? []).map((c) => ({
+    id: c.id,
+    display_name: nameById.get(c.id) ?? null,
+    headline: c.headline,
+    hours_per_month: c.hours_per_month,
+    causes: c.causes,
+    confirmed_at: c.confirmed_at,
+    email: emailById.get(c.id) ?? null,
+  }));
+
+  const { data: roleRows } = await db
+    .from("roles")
+    .select("id, title, cause, hours_per_month, status, published_at, organisation_id, organisations(name)")
+    .order("published_at", { ascending: false });
+  const { data: orgMemberRows } = await db.from("org_members").select("organisation_id, user_id, created_at").order("created_at", { ascending: true });
+  const contactByOrg = new Map<string, string | null>();
+  for (const m of orgMemberRows ?? []) {
+    if (!contactByOrg.has(m.organisation_id)) contactByOrg.set(m.organisation_id, nameById.get(m.user_id) ?? null);
+  }
+
+  const roles: RoleRow[] = (
+    (roleRows ?? []) as unknown as { id: string; title: string; cause: string; hours_per_month: number; status: string; published_at: string | null; organisation_id: string; organisations: { name: string } | null }[]
+  ).map((r) => ({
+    id: r.id,
+    title: r.title,
+    org_name: r.organisations?.name ?? "",
+    contact_name: contactByOrg.get(r.organisation_id) ?? null,
+    hours_per_month: r.hours_per_month,
+    cause: r.cause,
+    status: r.status,
+    published_at: r.published_at,
+  }));
+
+  return { candidates, roles };
+}
+
+async function AllProfiles() {
+  const { candidates, roles } = await loadData();
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-10">
       <header className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-gorse">Demo · made-up charities and people</p>
-        <h1 className="font-serif text-3xl font-semibold">The same match, from both sides</h1>
+        <p className="text-xs font-semibold uppercase tracking-wide text-gorse">Internal — every test record, live</p>
+        <h1 className="font-serif text-3xl font-semibold">All profiles</h1>
         <p className="max-w-2xl text-ink-muted">
-          This is the rules engine on synthetic data: the cards each side sees the moment a role or profile goes live.
-          In the live service, Claude re-ranks the top matches and rewrites each &ldquo;why&rdquo; within seconds,
-          and only reasons backed by the CV or the board audit survive.
+          Every candidate and charity role currently in the database, updated as new ones are added. This page isn&apos;t
+          part of the real product — it&apos;s a way to come back to any profile and see how matches and interest have
+          changed since you last looked. Click through to see that person&apos;s or charity&apos;s actual matches.
         </p>
       </header>
 
-      <section className="space-y-4">
-        <h2 className="font-serif text-2xl font-semibold">Sam, a fund accountant: &ldquo;Boards that need you&rdquo;</h2>
-        <p className="text-sm text-ink-muted">
-          First-time trustee, 6 hrs/month, cares about the environment and young people. {samRoles.length} matching
-          boards, best first.
-        </p>
-        <div className="grid gap-4 md:grid-cols-2">
-          {samRoles.map((p) => {
-            const role = DEMO_ROLES.find((r) => r.id === p.roleId)!;
-            return <RoleCard key={p.roleId} role={role} card={provisionalCard(p, role, sam)} />;
-          })}
+      <section className="space-y-3">
+        <h2 className="font-serif text-xl font-semibold">Charities &amp; roles ({roles.length})</h2>
+        <div className="space-y-2">
+          {roles.map((r) => (
+            <Link
+              key={r.id}
+              href={`/charity/role/${r.id}`}
+              className="block rounded-lg border border-line bg-surface p-4 text-sm hover:border-sea"
+            >
+              <p className="font-medium">
+                {r.org_name} — {r.title}
+              </p>
+              <p className="text-ink-muted">
+                {causeLabel(r.cause)} · about {r.hours_per_month} hrs/month · contact: {r.contact_name ?? "none on file"} ·{" "}
+                {r.status}
+              </p>
+            </Link>
+          ))}
+          {roles.length === 0 && <p className="text-sm text-ink-muted">No roles published yet.</p>}
         </div>
       </section>
 
-      <section className="space-y-4">
-        <h2 className="font-serif text-2xl font-semibold">
-          Harbour Youth Trust&apos;s chair: &ldquo;Suggested trustees&rdquo;
-        </h2>
-        <div className="space-y-2 rounded-lg border border-line bg-surface p-4">
-          <p className="text-sm">
-            <span className="font-medium">{youth.title}</span> · board skills audit:
-          </p>
-          <SkillsGrid role={youth} />
-          <p className="text-xs text-ink-muted">
-            Full ranked list (top {MATCHING.thresholds.charity_highlight_top} highlighted). Only candidates who chose to
-            be discoverable appear, and nobody&apos;s name is shown until both sides say yes.
-          </p>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          {youthCandidates.map((p, i) => {
-            const c = DEMO_CANDIDATES.find((x) => x.id === p.candidateId)!;
-            return (
-              <div key={p.candidateId} className={i < MATCHING.thresholds.charity_highlight_top ? "" : "opacity-70"}>
-                <CandidateCard candidate={c} card={provisionalCard(p, youth, c)} rank={i + 1} />
-              </div>
-            );
-          })}
+      <section className="space-y-3">
+        <h2 className="font-serif text-xl font-semibold">Candidates ({candidates.length})</h2>
+        <div className="space-y-2">
+          {candidates.map((c) => (
+            <Link
+              key={c.id}
+              href={`/join/candidate/${c.id}`}
+              className="block rounded-lg border border-line bg-surface p-4 text-sm hover:border-sea"
+            >
+              <p className="font-medium">
+                {c.display_name ?? "(unnamed)"} <span className="font-normal text-ink-muted">{c.email}</span>
+              </p>
+              <p className="text-ink-muted">
+                {c.headline} · {c.hours_per_month} hrs/month · {c.causes.map(causeLabel).join(", ")}
+              </p>
+            </Link>
+          ))}
+          {candidates.length === 0 && <p className="text-sm text-ink-muted">No candidates confirmed yet.</p>}
         </div>
       </section>
+
+      <section className="space-y-2 rounded-lg border border-line bg-surface p-4 text-sm">
+        <p className="font-medium">Add more test data</p>
+        <p className="text-ink-muted">
+          <Link href="/join" className="text-sea underline">
+            Become a trustee
+          </Link>{" "}
+          adds a candidate · <Link href="/charity" className="text-sea underline">For charities</Link> publishes a role.
+          To wipe and start over with a clean, known seed, run <code>npm run reset:db -- --yes</code> locally — see{" "}
+          <code>scripts/reset-db.mjs</code>.
+        </p>
+      </section>
     </div>
+  );
+}
+
+export default function DemoPage() {
+  return (
+    <Suspense fallback={<p className="text-sm text-ink-muted">Loading…</p>}>
+      <AllProfiles />
+    </Suspense>
   );
 }
