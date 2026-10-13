@@ -10,8 +10,10 @@ const role = (id: string) => DEMO_ROLES.find((r) => r.id === id)!;
 const cand = (id: string) => DEMO_CANDIDATES.find((c) => c.id === id)!;
 
 describe("filter", () => {
-  it("excludes candidates without enough hours", () => {
-    expect(filterPair(role("role-youth-finance"), cand("cand-busy-banker"))).toBe("insufficient_hours");
+  it("no longer hard-excludes on hours — a close shortfall is scored, not filtered (2026-10-13 redesign)", () => {
+    // cand-busy-banker has 2 hrs available against a 4-hr role, a strong finance skill match.
+    // Hours now fade the score via commitmentFit rather than excluding outright.
+    expect(filterPair(role("role-youth-finance"), cand("cand-busy-banker"))).toBeNull();
   });
   it("excludes declared conflicts", () => {
     expect(filterPair(role("role-wellbeing-hr"), cand("cand-private-lawyer"))).toBe("conflict");
@@ -86,6 +88,19 @@ describe("explanations and grounding", () => {
     expect(card.reasons.length).toBeGreaterThanOrEqual(2);
     expect(groundReasons(card.reasons, r, c)).toHaveLength(card.reasons.length);
     expect(card.reasons[0].claim).toContain("Led annual audit");
+  });
+
+  it("flags tight time as a visible consideration on a rules-only card, not silence (2026-10-13 redesign)", () => {
+    const shortOnTime = { ...c, hoursPerMonth: r.hoursPerMonth - 1 };
+    const shortPair = scorePair(r, shortOnTime, NOW);
+    const card = provisionalCard(shortPair, r, shortOnTime);
+    expect(card.considerations).toHaveLength(1);
+    expect(card.considerations[0]).toContain(`${shortOnTime.hoursPerMonth} hrs/month`);
+  });
+
+  it("has no hours consideration when the candidate has enough time", () => {
+    const card = provisionalCard(pair, r, c);
+    expect(card.considerations).toHaveLength(0);
   });
 
   it("drops reasons that point at things that don't exist", () => {

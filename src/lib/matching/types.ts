@@ -100,11 +100,7 @@ export interface Card {
   source: CardSource;
 }
 
-export type FilterReason =
-  | "role_paused"
-  | "candidate_paused"
-  | "insufficient_hours"
-  | "conflict"
-  | "cause_excluded"
-  | "missing_must_have"
-  | "already_active_with_org";
+// "insufficient_hours" was removed as a hard-filter reason 2026-10-13 — hours are now
+// scored on a continuum (see commitmentFit in score.ts), not a hard pass/fail. See
+// planning/agc-validation-questions.md #1.
+export type FilterReason = "role_paused" | "candidate_paused" | "conflict" | "cause_excluded" | "missing_must_have" | "already_active_with_org";

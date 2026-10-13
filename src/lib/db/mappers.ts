@@ -79,6 +79,32 @@ export function toCandidate(
   };
 }
 
+export interface CardRow {
+  role_id: string;
+  candidate_id: string;
+  score: number;
+  ai_rank: number | null;
+  confidence: Card["confidence"];
+  reasons: Card["reasons"];
+  considerations: string[];
+  source: Card["source"];
+}
+
+export const CARD_SELECT = "role_id, candidate_id, score, ai_rank, confidence, reasons, considerations, source";
+
+export function toCard(row: CardRow): Card {
+  return {
+    roleId: row.role_id,
+    candidateId: row.candidate_id,
+    score: row.score,
+    aiRank: row.ai_rank,
+    confidence: row.confidence,
+    reasons: row.reasons,
+    considerations: row.considerations,
+    source: row.source,
+  };
+}
+
 export function toCardRow(card: Card) {
   return {
     role_id: card.roleId,

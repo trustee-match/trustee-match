@@ -1,0 +1,131 @@
+"use server";
+
+import { CANDIDATE_SELECT, CARD_SELECT, ROLE_SELECT, toCandidate, toCard, toRole, type CandidateRow, type CardRow, type RoleRow } from "@/lib/db/mappers";
+import { triggerMatch } from "@/lib/jobs/trigger";
+import { diagnoseNoMatchForRole, type NoMatchDiagnosis } from "@/lib/matching/no-match-feedback";
+import type { BoardSkillCell, Candidate, Card } from "@/lib/matching/types";
+import { createAdminClient } from "@/lib/supabase/admin";
+
+// Internal test-harness actions for the pilot charity side, mirroring src/app/join/actions.ts.
+// Organisations need no auth user (unlike candidates) — they're a plain table, so this is
+// simpler than the candidate side. Still not real sign-in: anyone who can reach this can
+// publish a role under any organisation name. Same scope and same caveat as the candidate
+// side (see planning/responsible-design-decisions.md, Security) — fine behind the
+// site-wide preview gate, not fine for real charities.
+
+export interface RoleInput {
+  orgName: string;
+  title: string;
+  cause: string;
+  purpose: string;
+  hoursPerMonth: number;
+  meetingPattern: string;
+  induction: string;
+  mustHaveSkills: string[];
+  missingSkills: string[];
+  thinSkills: string[];
+  diversityPreference: string | null;
+}
+
+export type PublishResult = { ok: true; roleId: string } | { ok: false; error: string };
+
+async function findOrCreateOrg(db: ReturnType<typeof createAdminClient>, name: string): Promise<string> {
+  const trimmed = name.trim();
+  const { data: existing } = await db.from("organisations").select("id").ilike("name", trimmed).maybeSingle();
+  if (existing) return existing.id;
+  const { data: created, error } = await db.from("organisations").insert({ name: trimmed, verified: false }).select("id").single();
+  if (error) throw new Error(`organisation insert failed: ${error.message}`);
+  return created.id;
+}
+
+export async function publishRoleAndMatch(input: RoleInput): Promise<PublishResult> {
+  try {
+    if (!input.orgName.trim()) return { ok: false, error: "Enter your charity's name." };
+    if (!input.title.trim()) return { ok: false, error: "Give the role a title." };
+    if (!input.purpose.trim()) return { ok: false, error: "Add a short purpose — what does your charity do?" };
+    if (input.hoursPerMonth <= 0) return { ok: false, error: "Hours per month must be more than 0." };
+    if (!input.meetingPattern.trim()) return { ok: false, error: "Describe the meeting pattern." };
+    if (!input.induction.trim()) return { ok: false, error: "Describe the induction you'll offer." };
+    if (input.missingSkills.length === 0 && input.thinSkills.length === 0) {
+      return { ok: false, error: "Mark at least one skill as missing or thin — a role with no stated gap can't be matched on skills." };
+    }
+
+    const db = createAdminClient();
+    const organisationId = await findOrCreateOrg(db, input.orgName);
+
+    const boardSkills: BoardSkillCell[] = [
+      ...input.missingSkills.map((skill) => ({ skill, coverage: "missing" as const })),
+      ...input.thinSkills.map((skill) => ({ skill, coverage: "thin" as const })),
+    ];
+
+    const { data: role, error } = await db
+      .from("roles")
+      .insert({
+        organisation_id: organisationId,
+        title: input.title,
+        purpose: input.purpose,
+        cause: input.cause,
+        hours_per_month: input.hoursPerMonth,
+        meeting_pattern: input.meetingPattern,
+        induction: input.induction,
+        board_skills: boardSkills,
+        must_have_skills: input.mustHaveSkills,
+        diversity_preference: input.diversityPreference,
+        status: "published",
+        published_at: new Date().toISOString(),
+      })
+      .select("id")
+      .single();
+    if (error) throw new Error(`role insert failed: ${error.message}`);
+
+    await triggerMatch({ type: "role", id: role.id }, "role_published");
+
+    return { ok: true, roleId: role.id };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Unknown error publishing role" };
+  }
+}
+
+export type SuggestedTrusteesResult =
+  | { ok: true; matches: { candidate: Candidate; card: Card }[] }
+  | { ok: true; matches: []; diagnosis: NoMatchDiagnosis }
+  | { ok: false; error: string };
+
+export async function getSuggestedTrustees(roleId: string): Promise<SuggestedTrusteesResult> {
+  try {
+    const db = createAdminClient();
+
+    const { data: roleRow, error: roleErr } = await db.from("roles").select(ROLE_SELECT).eq("id", roleId).single();
+    if (roleErr) throw new Error(roleErr.message);
+    const role = toRole(roleRow as unknown as RoleRow);
+
+    const { data: cardRows, error: cardsErr } = await db
+      .from("cards")
+      .select(CARD_SELECT)
+      .eq("role_id", roleId)
+      .eq("hidden", false)
+      .order("score", { ascending: false });
+    if (cardsErr) throw new Error(cardsErr.message);
+    const cards = ((cardRows ?? []) as unknown as CardRow[]).map(toCard);
+
+    const { data: candRows, error: candErr } = await db
+      .from("candidates")
+      .select(CANDIDATE_SELECT)
+      .not("confirmed_at", "is", null)
+      .eq("paused", false)
+      .eq("discoverable", true);
+    if (candErr) throw new Error(candErr.message);
+    const candidates = ((candRows ?? []) as unknown as CandidateRow[]).map((c) => toCandidate(c, { openInterests: 0, activeWithOrganisations: [] }));
+
+    if (cards.length === 0) {
+      const diagnosis = diagnoseNoMatchForRole(role, candidates);
+      return { ok: true, matches: [], diagnosis };
+    }
+
+    const byId = new Map(candidates.map((c) => [c.id, c]));
+    const matches = cards.map((card) => ({ candidate: byId.get(card.candidateId)!, card })).filter((m) => m.candidate);
+    return { ok: true, matches };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Unknown error loading suggested trustees" };
+  }
+}

@@ -45,14 +45,22 @@ export function causeAffinity(role: Role, candidate: Candidate, cfg: MatchingCon
   return related ? cfg.cause_affinity.related : cfg.cause_affinity.none;
 }
 
-/** 1.0 when the candidate has generous spare time, scaling down to exact_fit_score at an exact fit. */
+/**
+ * 1.0 when the candidate has generous spare time, scaling down to exact_fit_score at an
+ * exact fit, and fading smoothly toward 0 below it. Deliberately a continuum, not a
+ * cliff: a candidate offering slightly less than a role asks for (5 hours vs. 6) is a
+ * much weaker signal of mismatch than one offering far less (1 vs. 20) — both the
+ * candidate's and the role's hours are rough estimates, not precise commitments, so
+ * scoring them as a gradient is more honest than a hard pass/fail. See
+ * planning/agc-validation-questions.md #1.
+ */
 export function commitmentFit(role: Role, candidate: Candidate, cfg: MatchingConfig = MATCHING): number {
   if (role.hoursPerMonth <= 0) return 1;
   const ratio = candidate.hoursPerMonth / role.hoursPerMonth;
-  if (ratio < 1) return 0; // filtered out upstream; defensive
   const { generous_ratio, exact_fit_score } = cfg.commitment;
   if (ratio >= generous_ratio) return 1;
-  return exact_fit_score + ((ratio - 1) / (generous_ratio - 1)) * (1 - exact_fit_score);
+  if (ratio >= 1) return exact_fit_score + ((ratio - 1) / (generous_ratio - 1)) * (1 - exact_fit_score);
+  return clamp01(ratio) * exact_fit_score;
 }
 
 /** First-timers are never penalised for inexperience if they've read the readiness guide. */

@@ -33,3 +33,17 @@ export function templateReasons(pair: ScoredPair, role: Role, candidate: Candida
 
   return reasons.slice(0, 3);
 }
+
+/**
+ * Deterministic caveats for provisional (rules-only) cards — the counterpart to the AI
+ * step's `considerations` field (see rank-explain.ts), which only exists once the AI
+ * upgrade has run. Hours are no longer a hard filter (2026-10-13 redesign), so a
+ * shortfall can now produce a real, visible card — it needs an honest flag here rather
+ * than silently appearing as if the time commitment were a non-issue.
+ */
+export function templateConsiderations(role: Role, candidate: Candidate): string[] {
+  if (candidate.hoursPerMonth < role.hoursPerMonth) {
+    return [`Has ${candidate.hoursPerMonth} hrs/month available; the role asks for about ${role.hoursPerMonth}`];
+  }
+  return [];
+}

@@ -2,7 +2,7 @@ import { MATCHING, type MatchingConfig } from "../config";
 import { filterPair } from "./filter";
 import { groundReasons } from "./grounding";
 import { scorePair } from "./score";
-import { templateReasons } from "./explain-template";
+import { templateConsiderations, templateReasons } from "./explain-template";
 import type { Candidate, Card, Confidence, Reason, Role, ScoredPair } from "./types";
 
 /** Score every allowed pairing for one role, best first, above the show threshold. */
@@ -49,7 +49,7 @@ export function provisionalCard(pair: ScoredPair, role: Role, candidate: Candida
     aiRank: null,
     confidence: ruleConfidence(pair.score),
     reasons: templateReasons(pair, role, candidate),
-    considerations: [],
+    considerations: templateConsiderations(role, candidate),
     source: "rules",
   };
 }

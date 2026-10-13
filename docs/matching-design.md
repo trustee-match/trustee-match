@@ -124,7 +124,7 @@ role published / profile confirmed
 ### 5.1 Decks
 - **Candidates:** "Boards that need you". The **top 5 open matches at any time**, updated live. A strong new match enters the deck (and triggers an alert) the moment its role is published. "Browse all open roles" is always available underneath.
 - **Charities (per role):** "Suggested trustees". Shown **immediately on publishing**, then updated live as new discoverable candidates join. Ranked list, top 5 highlighted. "Share this shortlist with my board" creates a read-only link for fellow trustees, who can add 👍 or a comment.
-- **Empty deck:** "We'll let you know as soon as a board needs your skills." Never a dead end.
+- **Empty deck:** never a silent dead end — see §5.4 for what's actually shown instead of a generic "no matches".
 
 ### 5.2 Card actions
 | Action | Effect |
@@ -156,6 +156,49 @@ Buttons are the primary interface. On mobile a swipe gesture is an optional shor
 The intro email suggests a next step ("most people start with a 30-minute coffee") and links to a "what to ask each other" guide. The platform doesn't book or arrange anything.
 
 The platform introduces. **Due diligence stays with the charity**, and the UI says so plainly.
+
+### 5.4 No-match feedback
+
+A zero-card deck is indistinguishable from "broken" or "ignored" unless the system says why.
+`src/lib/matching/no-match-feedback.ts` diagnoses the single most common blocking reason across
+*currently open* roles (for a candidate) or registered candidates (for a role), and turns it into
+a specific, honest message — every number in it is a real count or stat, never invented.
+
+**Why this exists:** designing the pilot's deliberate "insufficient hours" and "no skills overlap"
+test candidates (`planning/dummy-candidates/`) surfaced that the engine's hard filters and the
+`gapMatches`-required gate (§4.1, §4.2) can silently produce zero cards for a perfectly real,
+well-qualified person — and the existing design only had a generic "we'll let you know" message
+for every case, with no way to tell someone *why*, let alone whether there's anything they could
+usefully do about it.
+
+**What it distinguishes, and the message for each:**
+- **`insufficient_hours`** — states the lowest and median hours the open roles actually need (or,
+  from a role's side, the most/median hours registered candidates actually have), so the person
+  knows whether adjusting their stated availability would plausibly help.
+- **`missing_must_have`** — names the specific must-have skill(s) most commonly missing, not a
+  vague "skills gap".
+- **`cause_excluded`** — names the excluded cause(s) actually blocking matches, in case the
+  exclusion is stale.
+- **`conflict`** / **`already_active_with_org`** — explains the block is a declared relationship,
+  not a quality judgement.
+- **`candidate_paused`** — distinct from a real empty result: your profile isn't being matched at all right now.
+- **`no_skill_overlap`** (not a `FilterReason` — a second, independent gate) — every hard filter
+  passed, but no open role's `board_skills` cell resolves against anything on the profile. The
+  message is explicit that this isn't a judgement on the person's experience: cause affinity
+  alone can never produce a card (§4.2's `gapFit` returns 0 with no `gapMatches` when there's no
+  cell to match against), however well their stated causes align with a charity's mission. This
+  is a real, known limitation worth deciding on deliberately rather than leaving implicit.
+
+**Symmetry:** `diagnoseNoMatchForCandidate` and `diagnoseNoMatchForRole` share the same shape,
+phrased from each side's perspective — a charity whose published role shows nobody suitable gets
+the same quality of explanation as a candidate who sees no boards.
+
+**Not yet built:** this is the pure diagnostic logic only, written and unit-tested
+(`no-match-feedback.test.ts`) ahead of the `/join`/`/charity` UI that will actually call it —
+those pages are still the "coming soon" stub as of this writing. Whoever builds that UI should
+call `diagnoseNoMatchForCandidate`/`diagnoseNoMatchForRole` whenever the real ranked list comes
+back empty, and render `.message` (or build custom UI from the structured fields) rather than a
+hardcoded empty-state string.
 
 ## 6. Lifecycle and automation (no human gates)
 

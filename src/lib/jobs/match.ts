@@ -124,7 +124,14 @@ export async function matchCandidateRules(db: Db, candidateId: string) {
   const roles = await loadRoles(db);
   const byId = new Map(roles.map((r) => [r.id, r]));
   const ranked = rankRolesForCandidate(candidate, roles);
+
   await upsertCards(db, ranked.map((p) => provisionalCard(p, byId.get(p.roleId)!, candidate)));
+  // Hide cards for roles that no longer qualify (e.g. after a profile edit, or a
+  // previously-matched role whose must-have skills this candidate's new profile fails).
+  const { data: existing } = await db.from("cards").select("role_id").eq("candidate_id", candidateId).eq("hidden", false);
+  const keep = new Set(ranked.map((p) => p.roleId));
+  await hideCards(db, (existing ?? []).filter((e) => !keep.has(e.role_id)).map((e) => ({ roleId: e.role_id, candidateId })));
+
   return { candidate, top: ranked.slice(0, 5).map((pair) => ({ pair, role: byId.get(pair.roleId)! })) };
 }
 
