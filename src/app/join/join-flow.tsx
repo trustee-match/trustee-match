@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { CAUSES } from "@/lib/config";
@@ -37,7 +38,7 @@ export function JoinFlow() {
   async function handleExtract() {
     setError(null);
     if (!name.trim() || !email.trim()) {
-      setError("Enter a name and email first (this creates a test account — any email works, nothing is sent).");
+      setError("Enter your name and email first.");
       return;
     }
     setLoading(true);
@@ -152,10 +153,15 @@ export function JoinFlow() {
           I&apos;ve served as a trustee or board member before
         </label>
 
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={readGuide} onChange={(e) => setReadGuide(e.target.checked)} />
-          I&apos;ve read the &ldquo;Am I ready to be a trustee?&rdquo; guide
-        </label>
+        <div className="flex items-center gap-2 text-sm">
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={readGuide} onChange={(e) => setReadGuide(e.target.checked)} />
+            I&apos;ve read the &ldquo;Am I ready to be a trustee?&rdquo; guide
+          </label>
+          <Link href="/join/guide" target="_blank" className="text-sea underline">
+            Read it
+          </Link>
+        </div>
 
         <label className="block space-y-1">
           <span className="text-sm font-medium">Any charities you already have a conflict with?</span>
@@ -190,8 +196,7 @@ export function JoinFlow() {
     <div className="max-w-2xl space-y-6">
       <h1 className="font-serif text-3xl font-semibold">Become a trustee</h1>
       <p className="text-ink-muted">
-        Internal test harness: enter a name and email (any email works — this creates a test account, nothing is
-        sent), paste in a CV or personal statement, and see what the matching engine finds.
+        Enter your name and email, paste in your CV or a personal statement, and see which boards need your skills.
       </p>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -205,12 +210,12 @@ export function JoinFlow() {
           />
         </label>
         <label className="block space-y-1">
-          <span className="text-sm font-medium">Email (test only)</span>
+          <span className="text-sm font-medium">Email</span>
           <input
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm"
-            placeholder="e.g. david.ozanne@test.local"
+            placeholder="e.g. david.ozanne@example.com"
           />
         </label>
       </div>

@@ -22,9 +22,9 @@ export default function EnterPage() {
   return (
     <div className="mx-auto max-w-sm space-y-6 pt-16">
       <div className="space-y-2 text-center">
-        <p className="text-xs font-semibold uppercase tracking-wide text-gorse">Preview</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-gorse">Demo</p>
         <h1 className="font-serif text-2xl font-semibold">Trustee Match</h1>
-        <p className="text-sm text-ink-muted">This is a private preview. Enter the password you were given.</p>
+        <p className="text-sm text-ink-muted">This is a private demo. Enter the password you were given.</p>
       </div>
       <form
         onSubmit={(e) => {

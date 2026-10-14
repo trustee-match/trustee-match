@@ -53,7 +53,7 @@ export interface InteractiveActions {
 
 function Actions({ primary, activeLabel, interactive }: { primary: string; activeLabel: string; interactive?: InteractiveActions }) {
   if (!interactive) {
-    // Read-only context (e.g. /demo): the real buttons write interests and carry the
+    // Read-only context: the real buttons write interests and carry the
     // consent wording below (design §5.2), but there's no signed-in actor here to act
     // as. See the `interactive` prop on RoleCard/CandidateCard for the real wiring.
     return (
@@ -66,7 +66,7 @@ function Actions({ primary, activeLabel, interactive }: { primary: string; activ
           <button disabled className="rounded-md border border-line px-4 py-2 text-sm">Save</button>
         </div>
         <p className="text-xs text-ink-muted">
-          If they say yes too, we&apos;ll introduce you both by email and share your name, email and LinkedIn.
+          If they say yes too, we&apos;ll introduce you both by email and share your name and email.
         </p>
       </div>
     );
@@ -125,7 +125,7 @@ function Actions({ primary, activeLabel, interactive }: { primary: string; activ
       </div>
       {error && <p className="text-xs text-missing">{error}</p>}
       <p className="text-xs text-ink-muted">
-        If they say yes too, we&apos;ll introduce you both by email and share your name, email and LinkedIn.
+        If they say yes too, we&apos;ll introduce you both by email and share your name and email.
       </p>
     </div>
   );

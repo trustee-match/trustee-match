@@ -68,8 +68,8 @@ export function CharityFlow() {
     <div className="max-w-2xl space-y-6">
       <h1 className="font-serif text-3xl font-semibold">Find the trustee your board is missing</h1>
       <p className="text-ink-muted">
-        Internal test harness: no sign-in yet, just your charity&apos;s name and a contact. Describe the role and
-        mark which skills your board is missing or thin on, then publish to see who it suggests.
+        Enter your charity&apos;s name and a contact, describe the role, and mark which skills your board is
+        missing or thin on — then publish to see who it suggests.
       </p>
 
       <div className="grid gap-4 sm:grid-cols-2">
