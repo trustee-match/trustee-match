@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { causeLabel } from "@/lib/config";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { SubmissionModalTrigger } from "./submission-modal";
 
 export const metadata: Metadata = { title: "All profiles · Trustee Match" };
 
@@ -101,19 +102,21 @@ async function AllProfiles() {
         <h2 className="font-serif text-xl font-semibold">Charities &amp; roles ({roles.length})</h2>
         <div className="space-y-2">
           {roles.map((r) => (
-            <Link
-              key={r.id}
-              href={`/charity/role/${r.id}`}
-              className="block rounded-lg border border-line bg-surface p-4 text-sm hover:border-sea"
-            >
-              <p className="font-medium">
-                {r.org_name} — {r.title}
-              </p>
-              <p className="text-ink-muted">
-                {causeLabel(r.cause)} · about {r.hours_per_month} hrs/month · contact: {r.contact_name ?? "none on file"} ·{" "}
-                {r.status}
-              </p>
-            </Link>
+            <div key={r.id} className="flex items-start justify-between gap-3 rounded-lg border border-line bg-surface p-4 text-sm">
+              <div>
+                <p className="font-medium">
+                  {r.org_name} — {r.title}
+                </p>
+                <p className="text-ink-muted">
+                  {causeLabel(r.cause)} · about {r.hours_per_month} hrs/month · contact: {r.contact_name ?? "none on file"} ·{" "}
+                  {r.status}
+                </p>
+                <Link href={`/charity/role/${r.id}`} className="text-sea underline">
+                  View matches
+                </Link>
+              </div>
+              <SubmissionModalTrigger type="role" id={r.id} label="View submission" />
+            </div>
           ))}
           {roles.length === 0 && <p className="text-sm text-ink-muted">No roles published yet.</p>}
         </div>
@@ -123,18 +126,20 @@ async function AllProfiles() {
         <h2 className="font-serif text-xl font-semibold">Candidates ({candidates.length})</h2>
         <div className="space-y-2">
           {candidates.map((c) => (
-            <Link
-              key={c.id}
-              href={`/join/candidate/${c.id}`}
-              className="block rounded-lg border border-line bg-surface p-4 text-sm hover:border-sea"
-            >
-              <p className="font-medium">
-                {c.display_name ?? "(unnamed)"} <span className="font-normal text-ink-muted">{c.email}</span>
-              </p>
-              <p className="text-ink-muted">
-                {c.headline} · {c.hours_per_month} hrs/month · {c.causes.map(causeLabel).join(", ")}
-              </p>
-            </Link>
+            <div key={c.id} className="flex items-start justify-between gap-3 rounded-lg border border-line bg-surface p-4 text-sm">
+              <div>
+                <p className="font-medium">
+                  {c.display_name ?? "(unnamed)"} <span className="font-normal text-ink-muted">{c.email}</span>
+                </p>
+                <p className="text-ink-muted">
+                  {c.headline} · {c.hours_per_month} hrs/month · {c.causes.map(causeLabel).join(", ")}
+                </p>
+                <Link href={`/join/candidate/${c.id}`} className="text-sea underline">
+                  View matches
+                </Link>
+              </div>
+              <SubmissionModalTrigger type="candidate" id={c.id} label="View CV" />
+            </div>
           ))}
           {candidates.length === 0 && <p className="text-sm text-ink-muted">No candidates confirmed yet.</p>}
         </div>

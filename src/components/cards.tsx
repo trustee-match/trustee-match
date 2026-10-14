@@ -51,7 +51,7 @@ export interface InteractiveActions {
   error?: string | null;
 }
 
-function Actions({ primary, interactive }: { primary: string; interactive?: InteractiveActions }) {
+function Actions({ primary, activeLabel, interactive }: { primary: string; activeLabel: string; interactive?: InteractiveActions }) {
   if (!interactive) {
     // Read-only context (e.g. /demo): the real buttons write interests and carry the
     // consent wording below (design §5.2), but there's no signed-in actor here to act
@@ -110,7 +110,7 @@ function Actions({ primary, interactive }: { primary: string; interactive?: Inte
             current === "interested" ? "bg-sea text-white dark:text-bg" : "border border-line text-ink hover:bg-sea-soft"
           }`}
         >
-          {current === "interested" ? `✓ ${primary}d` : primary}
+          {current === "interested" ? `✓ ${activeLabel}` : primary}
         </button>
         <button
           type="button"
@@ -151,7 +151,7 @@ export function RoleCard({ role, card, interactive }: { role: Role; card: Card; 
       </header>
       <SkillsGrid role={role} />
       <Why card={card} label="Why you" />
-      <Actions primary="Interested" interactive={interactive} />
+      <Actions primary="Interested" activeLabel="Interested" interactive={interactive} />
     </article>
   );
 }
@@ -190,7 +190,7 @@ export function CandidateCard({
         ))}
       </ul>
       <Why card={card} label="Why this person" />
-      <Actions primary="Invite" interactive={interactive} />
+      <Actions primary="Invite" activeLabel="Invited" interactive={interactive} />
     </article>
   );
 }

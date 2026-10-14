@@ -39,6 +39,10 @@ export interface ConfirmInput {
   priorBoardExperience: boolean;
   readGuide: boolean;
   conflictOrgNames: string[];
+  /** The raw CV/personal-statement text pasted in — stored so testers can compare what
+   *  was submitted against what the engine extracted (see planning/demo-scaffolding.md).
+   *  Not shown back to the candidate anywhere yet; demo/testing-only for now. */
+  cvText: string;
 }
 
 export type ConfirmResult = { ok: true; candidateId: string } | { ok: false; error: string };
@@ -60,6 +64,7 @@ export async function confirmProfileAndMatch(input: ConfirmInput): Promise<Confi
     const { error: candidateErr } = await db.from("candidates").upsert({
       id: userId,
       headline: input.headline,
+      cv_text: input.cvText,
       hours_per_month: input.hoursPerMonth,
       prior_board_experience: input.priorBoardExperience,
       read_guide: input.readGuide,

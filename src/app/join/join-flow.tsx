@@ -68,6 +68,7 @@ export function JoinFlow() {
       priorBoardExperience,
       readGuide,
       conflictOrgNames: conflictText.split(",").map((s) => s.trim()).filter(Boolean),
+      cvText,
     };
     const confirmed = await confirmProfileAndMatch(input);
     if (!confirmed.ok) {
