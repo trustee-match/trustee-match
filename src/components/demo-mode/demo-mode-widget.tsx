@@ -112,7 +112,7 @@ export function DemoModeWidget() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-4 right-4 z-40 rounded-full border border-gorse bg-gorse-soft px-4 py-2 text-xs font-semibold uppercase tracking-wide text-ink shadow-md hover:shadow-lg"
+        className="fixed bottom-4 left-4 z-40 rounded-full border border-gorse bg-gorse-soft px-4 py-2 text-xs font-semibold uppercase tracking-wide text-ink shadow-md hover:shadow-lg"
       >
         Demo mode
       </button>
@@ -120,7 +120,7 @@ export function DemoModeWidget() {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-40 max-h-[80vh] w-[min(380px,calc(100vw-2rem))] overflow-y-auto rounded-lg border border-gorse bg-surface p-4 shadow-xl">
+    <div className="fixed bottom-4 left-4 z-40 max-h-[80vh] w-[min(380px,calc(100vw-2rem))] overflow-y-auto rounded-lg border border-gorse bg-surface p-4 shadow-xl">
       <div className="flex items-start justify-between gap-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-gorse">Demo Mode</p>
         <button type="button" onClick={() => setOpen(false)} aria-label="Collapse" className="text-ink-muted hover:text-ink">
