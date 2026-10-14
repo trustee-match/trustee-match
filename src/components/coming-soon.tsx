@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 /** Placeholder for flows still being built; describes what will happen here. */
 export function ComingSoon({ title, steps, week }: { title: string; steps: string[]; week: string }) {
   return (
@@ -11,9 +9,6 @@ export function ComingSoon({ title, steps, week }: { title: string; steps: strin
           <li key={s}>{s}</li>
         ))}
       </ol>
-      <p className="text-sm">
-        Meanwhile, <Link href="/profiles" className="text-sea underline">see all profiles</Link>.
-      </p>
     </div>
   );
 }

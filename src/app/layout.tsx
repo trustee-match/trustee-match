@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Inter, Source_Serif_4 } from "next/font/google";
+import { DemoModeWidget } from "@/components/demo-mode/demo-mode-widget";
 import "./globals.css";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
@@ -21,7 +22,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               Trustee Match
             </Link>
             <div className="flex gap-4 text-sm text-ink-muted">
-              <Link href="/profiles" className="hover:text-ink">All profiles</Link>
               <Link href="/join" className="hover:text-ink">Become a trustee</Link>
               <Link href="/charity" className="hover:text-ink">For charities</Link>
             </div>
@@ -31,6 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <footer className="border-t border-line py-6 text-center text-xs text-ink-muted">
           Free and open source (MIT). Built in Guernsey for the Bailiwick&apos;s charities.
         </footer>
+        <DemoModeWidget />
       </body>
     </html>
   );
