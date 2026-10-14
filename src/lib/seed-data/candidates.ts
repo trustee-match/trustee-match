@@ -24,7 +24,7 @@ export interface PilotCandidate {
   headline: string;
   /** The CV text (or, for Peter Collins, personal statement) as it would be pasted into
    *  /join — stored to candidates.cv_text on seed, same as a real confirm does, so the
-   *  demo's "View CV" modal (src/app/demo/submission-modal.tsx) has something to show
+   *  /profiles page's "View CV" modal (src/app/profiles/submission-modal.tsx) has something to show
    *  for seeded personas, not just freshly-run ones. */
   cvText: string;
   skills: { skill: string; level: Level; evidence: string }[];

@@ -9,8 +9,9 @@ export const metadata: Metadata = { title: "All profiles · Trustee Match" };
 
 // A live index of every candidate and charity role currently in the database — the
 // thing to come back to as test data changes shape, and the hub for giving someone a
-// guided tour without hunting for individual links. Replaces the old /demo route, which
-// showed fixed synthetic data (src/lib/demo.ts) rather than anything real; that fixture
+// guided tour without hunting for individual links. Replaces the old /demo route
+// (renamed to /profiles 2026-10-14, see planning/demo-scaffolding.md), which showed
+// fixed synthetic data (src/lib/demo.ts) rather than anything real; that fixture
 // data still exists and is still used by the matching engine's unit tests, just no
 // longer shown here. See planning/responsible-design-decisions.md (Privacy) for why an
 // aggregated, real-name index like this is an internal/test-only page, not a pattern the
@@ -160,7 +161,7 @@ async function AllProfiles() {
   );
 }
 
-export default function DemoPage() {
+export default function ProfilesPage() {
   return (
     <Suspense fallback={<p className="text-sm text-ink-muted">Loading…</p>}>
       <AllProfiles />

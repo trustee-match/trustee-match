@@ -3,7 +3,7 @@
 import { ROLE_SELECT, toRole, type RoleRow } from "@/lib/db/mappers";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-// Demo-only lookups for /demo's "see what was submitted" modal — not part of the real
+// Demo-only lookups for /profiles' "see what was submitted" modal — not part of the real
 // product. See planning/demo-scaffolding.md: this whole file, and the modal UI that
 // calls it, needs to be deleted (not just hidden) when the demo scaffolding comes out.
 

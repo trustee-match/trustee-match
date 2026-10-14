@@ -12,7 +12,7 @@ export function ComingSoon({ title, steps, week }: { title: string; steps: strin
         ))}
       </ol>
       <p className="text-sm">
-        Meanwhile, <Link href="/demo" className="text-sea underline">see the matching demo</Link>.
+        Meanwhile, <Link href="/profiles" className="text-sea underline">see all profiles</Link>.
       </p>
     </div>
   );

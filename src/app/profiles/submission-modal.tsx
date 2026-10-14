@@ -6,7 +6,7 @@ import { getCandidateSubmission, getRoleSubmission } from "./actions";
 // Demo-only "see what was submitted" modal — not part of the real product, built so
 // testers can compare a candidate's actual CV/personal statement (or a charity's full
 // role submission) against what matching surfaces. See planning/demo-scaffolding.md:
-// this component and demo/actions.ts both need to be deleted, not just hidden, when the
+// this component and profiles/actions.ts both need to be deleted, not just hidden, when the
 // demo scaffolding comes out — along with candidates.cv_text itself (see the Privacy
 // entry in planning/responsible-design-decisions.md on why storing raw CV text is a new
 // category of data, not just a display change).

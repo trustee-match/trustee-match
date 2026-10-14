@@ -39,7 +39,7 @@ export default function Home() {
 
       <p className="text-sm text-ink-muted">
         Browse every test candidate and charity currently in the system:{" "}
-        <Link href="/demo" className="text-sea underline">all profiles</Link>.
+        <Link href="/profiles" className="text-sea underline">all profiles</Link>.
       </p>
     </div>
   );
