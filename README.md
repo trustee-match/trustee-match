@@ -17,7 +17,7 @@ Requires Node 24 LTS.
 
 ```bash
 npm install
-npm run dev        # http://localhost:3000/demo works with no services configured
+npm run dev        # http://localhost:3001/profiles works with no services configured (runs on 3001, not 3000, to sit alongside other local projects)
 npm test           # matching engine, timers, grounding
 npm run typecheck
 npm run build

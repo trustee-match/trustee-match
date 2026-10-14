@@ -6,7 +6,7 @@
 //
 // DESTRUCTIVE: deletes every auth user and organisation in the target project first.
 // Requires --yes. Usage:
-//   node scripts/reset-db.mjs --yes                  # against http://localhost:3000
+//   node scripts/reset-db.mjs --yes                  # against http://localhost:3001
 //   node scripts/reset-db.mjs --yes --base=https://trustee-match-demo.netlify.app
 
 import { readFileSync } from "node:fs";
@@ -30,7 +30,7 @@ if (!args.includes("--yes")) {
   process.exit(1);
 }
 const baseArg = args.find((a) => a.startsWith("--base="));
-const base = baseArg ? baseArg.slice("--base=".length) : "http://localhost:3000";
+const base = baseArg ? baseArg.slice("--base=".length) : "http://localhost:3001";
 
 const env = loadEnvLocal();
 if (!env.ADMIN_RESET_SECRET) {
