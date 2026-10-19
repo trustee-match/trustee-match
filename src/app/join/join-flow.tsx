@@ -233,12 +233,13 @@ export function JoinFlow() {
     );
   }
 
+  const linkedinChosen = Boolean(pdfFile);
+
   return (
     <div className="max-w-2xl space-y-6">
       <h1 className="font-serif text-3xl font-semibold">Become a trustee</h1>
       <p className="text-ink-muted">
-        Enter your name and email, then upload your LinkedIn profile (from LinkedIn&apos;s own{" "}
-        <em>More → Save to PDF</em>) or a CV, or just paste in some text — and see which boards need your skills.
+        Enter your name and email, then apply with LinkedIn — and see which boards need your skills.
       </p>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -262,31 +263,61 @@ export function JoinFlow() {
         </label>
       </div>
 
-      <label className="block space-y-1">
-        <span className="text-sm font-medium">LinkedIn profile PDF or a CV (PDF)</span>
-        <input
-          type="file"
-          accept="application/pdf"
-          onChange={(e) => setPdfFile(e.target.files?.[0] ?? null)}
-          className="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-sea file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white dark:file:text-bg"
-        />
-        <span className="block text-xs text-ink-muted">
-          On LinkedIn: your profile → the &ldquo;More&rdquo; button → Save to PDF. We never fetch anything from
-          linkedin.com ourselves — only the file you export and upload yourself.
-        </span>
-      </label>
+      {/* Branded as the primary path per the user's steer (2026-10-19): this is still just a
+          PDF upload under the hood (see fileToBase64 above) — no OIDC, no LinkedIn account
+          connection. docs/matching-design.md §3.2's actual "Continue with LinkedIn" sign-in
+          is still out of scope (needs a LinkedIn Developer App Jon would have to create, and
+          wouldn't return work-history data even if built — LinkedIn's API doesn't expose it). */}
+      <div className="rounded-lg border-2 border-[#0A66C2] bg-[#0A66C2]/5 p-5">
+        <p className="text-sm font-semibold text-[#0A66C2]">Apply with LinkedIn</p>
+        <p className="mt-1 text-sm text-ink-muted">
+          On LinkedIn: open your profile → the &ldquo;More&rdquo; button → <strong>Save to PDF</strong>. Upload
+          that file here. We never fetch anything from linkedin.com ourselves — only the file you export and
+          upload yourself.
+        </p>
+        <label className="mt-3 block">
+          <span className="sr-only">LinkedIn profile PDF</span>
+          <input
+            type="file"
+            accept="application/pdf"
+            onChange={(e) => setPdfFile(e.target.files?.[0] ?? null)}
+            className="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-[#0A66C2] file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white"
+          />
+        </label>
+        {pdfFile && <p className="mt-2 text-xs text-[#0A66C2]">Selected: {pdfFile.name}</p>}
+      </div>
 
-      <label className="block space-y-1">
-        <span className="text-sm font-medium">Or paste a CV or personal statement{pdfFile ? " (ignored while a PDF is selected)" : ""}</span>
-        <textarea
-          value={cvText}
-          onChange={(e) => setCvText(e.target.value)}
-          rows={10}
-          disabled={Boolean(pdfFile)}
-          className="w-full rounded-md border border-line bg-surface px-3 py-2 font-mono text-xs disabled:opacity-50"
-          placeholder="Paste CV text here"
-        />
-      </label>
+      <details className="rounded-lg border border-line p-4" open={!linkedinChosen && cvText.trim().length > 0}>
+        <summary className="cursor-pointer text-sm font-medium text-ink-muted">
+          Don&apos;t have a LinkedIn profile? Upload a CV or paste text instead
+        </summary>
+        <div className="mt-3 space-y-3">
+          <label className="block space-y-1">
+            <span className="text-sm font-medium">CV (PDF)</span>
+            <input
+              type="file"
+              accept="application/pdf"
+              onChange={(e) => setPdfFile(e.target.files?.[0] ?? null)}
+              disabled={linkedinChosen}
+              className="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-sea file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white disabled:opacity-50 dark:file:text-bg"
+            />
+          </label>
+          <label className="block space-y-1">
+            <span className="text-sm font-medium">Or paste a CV or personal statement</span>
+            <textarea
+              value={cvText}
+              onChange={(e) => setCvText(e.target.value)}
+              rows={8}
+              disabled={linkedinChosen}
+              className="w-full rounded-md border border-line bg-surface px-3 py-2 font-mono text-xs disabled:opacity-50"
+              placeholder="Paste CV text here"
+            />
+          </label>
+          {linkedinChosen && (
+            <p className="text-xs text-ink-muted">Clear the LinkedIn PDF above to use a CV instead.</p>
+          )}
+        </div>
+      </details>
 
       {error && <p className="rounded-md bg-missing-soft p-3 text-sm text-missing">{error}</p>}
 
@@ -294,9 +325,9 @@ export function JoinFlow() {
         type="button"
         onClick={handleExtract}
         disabled={loading}
-        className="rounded-md bg-sea px-5 py-2.5 font-medium text-white disabled:opacity-50 dark:text-bg"
+        className={`rounded-md px-5 py-2.5 font-medium text-white disabled:opacity-50 ${linkedinChosen ? "bg-[#0A66C2]" : "bg-sea dark:text-bg"}`}
       >
-        {loading ? "Reading…" : "Extract profile"}
+        {loading ? "Reading…" : linkedinChosen ? "Continue with LinkedIn" : "Extract profile"}
       </button>
     </div>
   );
