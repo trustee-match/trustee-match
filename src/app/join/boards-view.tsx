@@ -67,7 +67,7 @@ export function BoardsView({ candidateId }: { candidateId: string }) {
       <h1 className="font-serif text-2xl font-semibold">Boards that need you</h1>
       {matches.length === 0 ? (
         <div className="rounded-lg border border-line bg-surface p-5">
-          <p className="font-medium">No matches today</p>
+          <p className="font-medium">No matches yet</p>
           <p className="mt-2 text-sm text-ink-muted">{diagnosis?.message ?? "Check back soon."}</p>
         </div>
       ) : (

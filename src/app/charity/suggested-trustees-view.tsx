@@ -77,7 +77,7 @@ export function SuggestedTrusteesView({ roleId }: { roleId: string }) {
       <h2 className="font-serif text-xl font-semibold">Suggested trustees</h2>
       {matches.length === 0 ? (
         <div className="rounded-lg border border-line bg-surface p-5">
-          <p className="font-medium">No suggestions today</p>
+          <p className="font-medium">No suggestions yet</p>
           <p className="mt-2 text-sm text-ink-muted">{diagnosis?.message ?? "Check back soon."}</p>
         </div>
       ) : (

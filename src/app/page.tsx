@@ -33,7 +33,7 @@ export default function Home() {
 
       <section className="grid gap-4 sm:grid-cols-3">
         {[
-          ["Recruit for the gap", "Charities say which skills their board is missing. We match on the gap, not the job title."],
+          ["Recruit for the gap", "Charities say which skills their board could use. We match on the gap, not the job title."],
           ["Anonymous until you both say yes", "Charities see your skills and why you fit, not your name, until there's a mutual match."],
           ["A coffee, not an interview", "A match is one introduction email. What happens next is between you and the board."],
         ].map(([title, body]) => (

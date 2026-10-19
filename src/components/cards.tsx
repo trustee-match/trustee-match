@@ -8,12 +8,21 @@ const coverageStyle: Record<Coverage, string> = {
   covered: "bg-covered-soft text-covered",
 };
 
+/** `Coverage` ("missing"/"thin"/"covered") is a DB enum, not reader-facing copy — this
+ *  is the translation into plain English for the candidate reading a role's skills grid.
+ *  See planning/copy-style-proposal.md, "Option A". */
+const coverageText: Record<Coverage, string> = {
+  missing: "needed",
+  thin: "could use more",
+  covered: "covered",
+};
+
 export function SkillsGrid({ role }: { role: Role }) {
   return (
     <ul className="flex flex-wrap gap-1.5" aria-label="Board skills">
       {role.boardSkills.map((c) => (
         <li key={c.skill} className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${coverageStyle[c.coverage]}`}>
-          {skillLabel(c.skill)}: {c.coverage}
+          {skillLabel(c.skill)} — {coverageText[c.coverage]}
         </li>
       ))}
     </ul>
@@ -26,7 +35,7 @@ function Why({ card, label }: { card: Card; label: string }) {
       <p className="text-xs font-semibold uppercase tracking-wide text-sea">
         {label}
         <span className="ml-2 font-normal normal-case tracking-normal text-ink-muted">
-          {card.source === "ai" ? "AI-suggested, people decide" : "Suggested from the board's skills gap"}
+          {card.source === "ai" ? "AI-suggested — the decision is still yours" : "Matched on the board's skills gap"}
         </span>
       </p>
       <ul className="mt-1.5 list-disc space-y-1 pl-5 text-sm">

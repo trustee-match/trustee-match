@@ -264,7 +264,8 @@ export function JoinFlow() {
     <div className="max-w-2xl space-y-6">
       <h1 className="font-serif text-3xl font-semibold">Become a trustee</h1>
       <p className="text-ink-muted">
-        Enter your name and email, then apply with LinkedIn — and see which boards need your skills.
+        Tell us your name and email, then apply with LinkedIn — we&apos;ll show you the boards that could use
+        exactly what you&apos;ve got.
       </p>
 
       <div className="grid gap-4 sm:grid-cols-2">

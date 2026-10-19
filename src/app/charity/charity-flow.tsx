@@ -133,8 +133,8 @@ export function CharityFlow() {
     <div className="max-w-2xl space-y-6">
       <h1 className="font-serif text-3xl font-semibold">Find the trustee your board is missing</h1>
       <p className="text-ink-muted">
-        Enter your charity&apos;s name and a contact, describe the role, and mark which skills your board is
-        missing or thin on — then publish to see who it suggests.
+        Tell us about your charity and the role, mark where your board&apos;s skills could use a hand, then
+        publish to see who we&apos;d suggest.
       </p>
 
       <div className="rounded-lg border border-line bg-surface p-5">
