@@ -29,7 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </header>
         <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">{children}</main>
         <footer className="border-t border-line py-6 text-center text-xs text-ink-muted">
-          Free and open source (MIT). Built in Guernsey for the Bailiwick&apos;s charities.
+          Source code licensed under MIT.
         </footer>
         <DemoModeWidget />
       </body>
