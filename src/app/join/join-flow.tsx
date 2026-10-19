@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { CAUSES } from "@/lib/config";
-import { confirmProfileAndMatch, extractFromPdf, extractFromText, type ConfirmInput } from "./actions";
+import { confirmProfileAndMatch, extractFromDocx, extractFromPdf, extractFromText, type ConfirmInput } from "./actions";
+
+const DOCX_ACCEPT = ".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
 type ExtractedSkill = { skill: string; level: string; evidence: string };
 
@@ -34,7 +36,8 @@ export function JoinFlow() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [cvText, setCvText] = useState("");
-  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [linkedinFile, setLinkedinFile] = useState<File | null>(null);
+  const [cvFile, setCvFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,16 +62,22 @@ export function JoinFlow() {
       setError("Enter your name and email first.");
       return;
     }
-    if (!pdfFile && !cvText.trim()) {
-      setError("Upload a LinkedIn/CV PDF, or paste your CV or a personal statement.");
+    const file = linkedinFile ?? cvFile;
+    if (!file && !cvText.trim()) {
+      setError("Upload a LinkedIn PDF, a CV (PDF or Word), or paste your CV or a personal statement.");
       return;
     }
     setLoading(true);
-    // A PDF (LinkedIn's own "Save to PDF" export, or a CV) takes priority over pasted
-    // text if both are present — docs/matching-design.md §3.2's "Import your LinkedIn
-    // profile" path, now actually wired up rather than just extract-profile.ts
-    // supporting it with nothing in the UI to reach it.
-    const result = pdfFile ? await extractFromPdf(await fileToBase64(pdfFile)) : await extractFromText(cvText);
+    // A file (LinkedIn's own "Save to PDF" export, or a CV as PDF/.docx) takes priority
+    // over pasted text if both are present — docs/matching-design.md §3.2's "Import your
+    // LinkedIn profile" path. .docx has no native Claude document block (PDF-only), so
+    // it's routed to extractFromDocx, which converts to text locally first
+    // (extract-profile.ts) before sending it the same way as pasted text.
+    const result = !file
+      ? await extractFromText(cvText)
+      : file.name.toLowerCase().endsWith(".docx")
+        ? await extractFromDocx(await fileToBase64(file))
+        : await extractFromPdf(await fileToBase64(file));
     setLoading(false);
     if (!result.ok) {
       setError(result.error);
@@ -233,7 +242,7 @@ export function JoinFlow() {
     );
   }
 
-  const linkedinChosen = Boolean(pdfFile);
+  const linkedinChosen = Boolean(linkedinFile);
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -280,27 +289,28 @@ export function JoinFlow() {
           <input
             type="file"
             accept="application/pdf"
-            onChange={(e) => setPdfFile(e.target.files?.[0] ?? null)}
+            onChange={(e) => setLinkedinFile(e.target.files?.[0] ?? null)}
             className="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-[#0A66C2] file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white"
           />
         </label>
-        {pdfFile && <p className="mt-2 text-xs text-[#0A66C2]">Selected: {pdfFile.name}</p>}
+        {linkedinFile && <p className="mt-2 text-xs text-[#0A66C2]">Selected: {linkedinFile.name}</p>}
       </div>
 
-      <details className="rounded-lg border border-line p-4" open={!linkedinChosen && cvText.trim().length > 0}>
+      <details className="rounded-lg border border-line p-4" open={!linkedinChosen && (Boolean(cvFile) || cvText.trim().length > 0)}>
         <summary className="cursor-pointer text-sm font-medium text-ink-muted">
           Don&apos;t have a LinkedIn profile? Upload a CV or paste text instead
         </summary>
         <div className="mt-3 space-y-3">
           <label className="block space-y-1">
-            <span className="text-sm font-medium">CV (PDF)</span>
+            <span className="text-sm font-medium">CV (PDF or Word)</span>
             <input
               type="file"
-              accept="application/pdf"
-              onChange={(e) => setPdfFile(e.target.files?.[0] ?? null)}
+              accept={`application/pdf,${DOCX_ACCEPT}`}
+              onChange={(e) => setCvFile(e.target.files?.[0] ?? null)}
               disabled={linkedinChosen}
               className="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-sea file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white disabled:opacity-50 dark:file:text-bg"
             />
+            {cvFile && <span className="block text-xs text-ink-muted">Selected: {cvFile.name}</span>}
           </label>
           <label className="block space-y-1">
             <span className="text-sm font-medium">Or paste a CV or personal statement</span>

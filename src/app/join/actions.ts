@@ -47,6 +47,27 @@ export async function extractFromPdf(base64: string): Promise<ExtractResult> {
   return { ok: true, profile };
 }
 
+/** `base64` is a .docx file's content with any `data:...;base64,` prefix already
+ *  stripped. Claude's document block is PDF-only, so extractProfile converts this to
+ *  plain text with mammoth first (extract-profile.ts) and sends that down the same path
+ *  as pasted CV text. */
+export async function extractFromDocx(base64: string): Promise<ExtractResult> {
+  if (!base64.trim()) return { ok: false, error: "Choose a .docx file first." };
+  try {
+    const profile = await extractProfile({ kind: "docx", base64 });
+    if (!profile) {
+      return {
+        ok: false,
+        error:
+          "AI extraction returned nothing — most likely ANTHROPIC_API_KEY isn't set in .env.local (or the dev server hasn't been restarted since it was added), or Claude declined to process this file.",
+      };
+    }
+    return { ok: true, profile };
+  } catch {
+    return { ok: false, error: "Couldn't read that file — make sure it's a .docx (not .doc, which isn't supported), and not password-protected." };
+  }
+}
+
 export interface ConfirmInput {
   name: string;
   email: string;

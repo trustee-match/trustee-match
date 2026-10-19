@@ -24,7 +24,7 @@ export const ExtractedProfile = z.object({
 });
 export type ExtractedProfile = z.infer<typeof ExtractedProfile>;
 
-export type ProfileSource = { kind: "pdf"; base64: string } | { kind: "text"; text: string };
+export type ProfileSource = { kind: "pdf"; base64: string } | { kind: "docx"; base64: string } | { kind: "text"; text: string };
 
 const SYSTEM = `You turn a CV or LinkedIn profile export into a draft profile for a charity trustee matching service in Guernsey.
 
@@ -41,16 +41,27 @@ Rules:
 - Leave out contact details other than a LinkedIn URL.
 - The person will review everything you produce, so be accurate rather than generous.`;
 
+/** .docx has no native Claude document block (that's PDF-only), so it's converted to
+ *  plain text locally first with mammoth, then sent down the same `text` path as pasted
+ *  CV text. Throws on a corrupt or non-.docx file — callers (extractFromDocx in
+ *  src/app/join/actions.ts) turn that into the same error shape as every other failure. */
+async function docxToText(base64: string): Promise<string> {
+  const { default: mammoth } = await import("mammoth");
+  const { value } = await mammoth.extractRawText({ buffer: Buffer.from(base64, "base64") });
+  return value;
+}
+
 /** Returns null when AI is disabled or fails; the UI then falls back to the 6-question form. */
 export async function extractProfile(source: ProfileSource): Promise<ExtractedProfile | null> {
   if (!aiEnabled()) return null;
+  const resolvedSource: ProfileSource = source.kind === "docx" ? { kind: "text", text: await docxToText(source.base64) } : source;
   const content =
-    source.kind === "pdf"
+    resolvedSource.kind === "pdf"
       ? [
-          { type: "document" as const, source: { type: "base64" as const, media_type: "application/pdf" as const, data: source.base64 } },
+          { type: "document" as const, source: { type: "base64" as const, media_type: "application/pdf" as const, data: resolvedSource.base64 } },
           { type: "text" as const, text: "Extract the draft trustee profile from this document." },
         ]
-      : [{ type: "text" as const, text: `Extract the draft trustee profile from this CV text:\n\n<cv>\n${source.text}\n</cv>` }];
+      : [{ type: "text" as const, text: `Extract the draft trustee profile from this CV text:\n\n<cv>\n${resolvedSource.text}\n</cv>` }];
 
   try {
     const response = await getClient().beta.messages.parse({
