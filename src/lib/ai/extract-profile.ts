@@ -2,6 +2,7 @@ import { z } from "zod";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { CAUSES, CAUSE_IDS, SKILLS, SKILL_IDS } from "../config";
 import { AI_MODEL, FALLBACK_BETA, aiEnabled, getClient, logAiError } from "./client";
+import { docxToText } from "./docx";
 
 // CV / LinkedIn "Save to PDF" → structured candidate profile. The candidate then reviews
 // and confirms every field; this is a draft, never the final record.
@@ -40,16 +41,6 @@ Rules:
 - Do not record or infer age, gender, ethnicity, nationality, religion, health, disability, sexuality, marital status or any other protected characteristic, even if the document states it. "youth_voice" and "lived_experience" are only for experience the person explicitly offers as relevant, not for inferred characteristics.
 - Leave out contact details other than a LinkedIn URL.
 - The person will review everything you produce, so be accurate rather than generous.`;
-
-/** .docx has no native Claude document block (that's PDF-only), so it's converted to
- *  plain text locally first with mammoth, then sent down the same `text` path as pasted
- *  CV text. Throws on a corrupt or non-.docx file — callers (extractFromDocx in
- *  src/app/join/actions.ts) turn that into the same error shape as every other failure. */
-async function docxToText(base64: string): Promise<string> {
-  const { default: mammoth } = await import("mammoth");
-  const { value } = await mammoth.extractRawText({ buffer: Buffer.from(base64, "base64") });
-  return value;
-}
 
 /** Returns null when AI is disabled or fails; the UI then falls back to the 6-question form. */
 export async function extractProfile(source: ProfileSource): Promise<ExtractedProfile | null> {

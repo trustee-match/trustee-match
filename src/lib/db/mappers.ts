@@ -15,11 +15,12 @@ export interface RoleRow {
   diversity_preference: string | null;
   status: string;
   published_at: string | null;
+  volunteer_gg_url: string | null;
   organisations: { name: string; verified: boolean; suspended: boolean } | null;
 }
 
 export const ROLE_SELECT =
-  "id, organisation_id, title, cause, hours_per_month, meeting_pattern, induction, board_skills, must_have_skills, diversity_preference, status, published_at, organisations(name, verified, suspended)";
+  "id, organisation_id, title, cause, hours_per_month, meeting_pattern, induction, board_skills, must_have_skills, diversity_preference, status, published_at, volunteer_gg_url, organisations(name, verified, suspended)";
 
 export function toRole(r: RoleRow): Role {
   return {
@@ -37,6 +38,7 @@ export function toRole(r: RoleRow): Role {
     verified: r.organisations?.verified ?? false,
     publishedAt: r.published_at ?? new Date().toISOString(),
     paused: r.status !== "published" || Boolean(r.organisations?.suspended),
+    volunteerGgUrl: r.volunteer_gg_url,
   };
 }
 
@@ -52,11 +54,12 @@ export interface CandidateRow {
   preference_tags: string[];
   paused: boolean;
   confirmed_at: string | null;
+  motivation: string | null;
   candidate_skills: { skill: string; level: Level; evidence: string }[];
 }
 
 export const CANDIDATE_SELECT =
-  "id, hours_per_month, prior_board_experience, read_guide, discoverable, causes, cause_exclusions, conflicts, preference_tags, paused, confirmed_at, candidate_skills(skill, level, evidence)";
+  "id, hours_per_month, prior_board_experience, read_guide, discoverable, causes, cause_exclusions, conflicts, preference_tags, paused, confirmed_at, motivation, candidate_skills(skill, level, evidence)";
 
 export function toCandidate(
   c: CandidateRow,
@@ -76,6 +79,7 @@ export function toCandidate(
     openInterests: ctx.openInterests,
     activeWithOrganisations: ctx.activeWithOrganisations,
     paused: c.paused || !c.confirmed_at,
+    motivation: c.motivation,
   };
 }
 

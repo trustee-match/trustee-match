@@ -11,7 +11,7 @@ import { getCandidateSubmission, getRoleSubmission } from "./actions";
 // entry in planning/responsible-design-decisions.md on why storing raw CV text is a new
 // category of data, not just a display change).
 
-type State = { kind: "closed" } | { kind: "loading" } | { kind: "error"; message: string } | { kind: "candidate"; name: string; email: string | null; headline: string | null; cvText: string | null; linkedinUrl: string | null } | {
+type State = { kind: "closed" } | { kind: "loading" } | { kind: "error"; message: string } | { kind: "candidate"; name: string; email: string | null; headline: string | null; cvText: string | null; linkedinUrl: string | null; motivation: string | null } | {
   kind: "role";
   orgName: string;
   title: string;
@@ -24,6 +24,7 @@ type State = { kind: "closed" } | { kind: "loading" } | { kind: "error"; message
   boardSkills: { skill: string; coverage: string; note?: string }[];
   contactName: string | null;
   contactEmail: string | null;
+  volunteerGgUrl: string | null;
 };
 
 export function SubmissionModalTrigger({ type, id, label }: { type: "candidate" | "role"; id: string; label: string }) {
@@ -79,6 +80,12 @@ export function SubmissionModalTrigger({ type, id, label }: { type: "candidate" 
                     </p>
                   )}
                 </div>
+                {state.motivation && (
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">What draws them to this</p>
+                    <p className="mt-1 whitespace-pre-wrap text-sm italic">&ldquo;{state.motivation}&rdquo;</p>
+                  </div>
+                )}
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">As submitted — CV / personal statement</p>
                   <pre className="mt-2 whitespace-pre-wrap rounded-md border border-line bg-bg p-3 font-mono text-xs">
@@ -96,6 +103,13 @@ export function SubmissionModalTrigger({ type, id, label }: { type: "candidate" 
                     {state.hoursPerMonth} hrs/month · {state.meetingPattern} · contact: {state.contactName ?? "none on file"}
                     {state.contactEmail ? ` <${state.contactEmail}>` : ""}
                   </p>
+                  {state.volunteerGgUrl && (
+                    <p className="text-sm">
+                      <a href={state.volunteerGgUrl} target="_blank" rel="noopener noreferrer" className="text-sea underline">
+                        {state.volunteerGgUrl}
+                      </a>
+                    </p>
+                  )}
                 </div>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Purpose, as submitted</p>

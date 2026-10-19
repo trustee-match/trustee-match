@@ -165,6 +165,13 @@ export function RoleCard({ role, card, interactive }: { role: Role; card: Card; 
           {role.title} · {causeLabel(role.cause)} · about {role.hoursPerMonth} hrs/month · {role.meetingPattern}
         </p>
         <p className="text-sm text-ink-muted">Induction: {role.induction}</p>
+        {role.volunteerGgUrl && (
+          <p className="text-xs">
+            <a href={role.volunteerGgUrl} target="_blank" rel="noopener noreferrer" className="text-sea underline">
+              Also listed on volunteer.gg
+            </a>
+          </p>
+        )}
       </header>
       <SkillsGrid role={role} />
       <Why card={card} label="Why you" />
@@ -198,6 +205,9 @@ export function CandidateCard({
         </div>
         <span className="shrink-0 rounded bg-sea-soft px-2 py-0.5 text-xs text-sea">score {card.score}</span>
       </header>
+      {candidate.motivation && (
+        <p className="text-sm italic text-ink-muted">&ldquo;{candidate.motivation}&rdquo;</p>
+      )}
       <ul className="space-y-1 text-sm">
         {candidate.skills.map((s) => (
           <li key={s.skill}>

@@ -29,6 +29,10 @@ export interface Candidate {
   /** Organisation ids where the candidate already has an active match or appointment. */
   activeWithOrganisations: string[];
   paused: boolean;
+  /** What draws them to this kind of work, in their own words — a direct question
+   *  (src/app/join/join-flow.tsx), not AI-inferred from a CV like `causes` is. Null if
+   *  left blank. Shown to a charity pre-match alongside skills, same as causes. */
+  motivation: string | null;
 }
 
 export interface BoardSkillCell {
@@ -54,6 +58,9 @@ export interface Role {
   verified: boolean;
   publishedAt: string;
   paused: boolean;
+  /** Credited deep-link back to the role's volunteer.gg listing, if it has one — null
+   *  for roles not sourced from or cross-posted to volunteer.gg. */
+  volunteerGgUrl: string | null;
 }
 
 export interface ScoreBreakdown {

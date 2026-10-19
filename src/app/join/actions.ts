@@ -86,6 +86,11 @@ export interface ConfirmInput {
    *  by the candidate like every other extracted field. Revealed to the charity only at
    *  the match stage (docs/matching-design.md §3.2) — see getCandidateContact. */
   linkedinUrl: string | null;
+  /** What draws them to this kind of work, in their own words — a direct question asked
+   *  in /join, not AI-inferred like `causes`. AGC feedback (planning/feedback/agc1.md,
+   *  Kirstin): "add a question about what people feel passionate about rather than focus
+   *  on their skills alone." Shown to a charity pre-match, same as skills/causes. */
+  motivation: string | null;
 }
 
 export type ConfirmResult = { ok: true; candidateId: string } | { ok: false; error: string };
@@ -109,6 +114,7 @@ export async function confirmProfileAndMatch(input: ConfirmInput): Promise<Confi
       headline: input.headline,
       cv_text: input.cvText,
       linkedin_url: input.linkedinUrl,
+      motivation: input.motivation,
       hours_per_month: input.hoursPerMonth,
       prior_board_experience: input.priorBoardExperience,
       read_guide: input.readGuide,

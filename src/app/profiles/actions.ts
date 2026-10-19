@@ -8,14 +8,14 @@ import { createAdminClient } from "@/lib/supabase/admin";
 // calls it, needs to be deleted (not just hidden) when the demo scaffolding comes out.
 
 export type CandidateSubmission =
-  | { ok: true; name: string; email: string | null; headline: string | null; cvText: string | null; linkedinUrl: string | null }
+  | { ok: true; name: string; email: string | null; headline: string | null; cvText: string | null; linkedinUrl: string | null; motivation: string | null }
   | { ok: false; error: string };
 
 export async function getCandidateSubmission(candidateId: string): Promise<CandidateSubmission> {
   try {
     const db = createAdminClient();
     const [{ data: candRow, error }, { data: profile }, { data: user }] = await Promise.all([
-      db.from("candidates").select("headline, cv_text, linkedin_url").eq("id", candidateId).single(),
+      db.from("candidates").select("headline, cv_text, linkedin_url, motivation").eq("id", candidateId).single(),
       db.from("profiles").select("display_name").eq("id", candidateId).single(),
       db.auth.admin.getUserById(candidateId),
     ]);
@@ -27,6 +27,7 @@ export async function getCandidateSubmission(candidateId: string): Promise<Candi
       headline: candRow?.headline ?? null,
       cvText: candRow?.cv_text ?? null,
       linkedinUrl: candRow?.linkedin_url ?? null,
+      motivation: candRow?.motivation ?? null,
     };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Unknown error loading candidate" };
@@ -47,6 +48,7 @@ export type RoleSubmission =
       boardSkills: { skill: string; coverage: string; note?: string }[];
       contactName: string | null;
       contactEmail: string | null;
+      volunteerGgUrl: string | null;
     }
   | { ok: false; error: string };
 
@@ -87,6 +89,7 @@ export async function getRoleSubmission(roleId: string): Promise<RoleSubmission>
       boardSkills: role.boardSkills,
       contactName,
       contactEmail,
+      volunteerGgUrl: role.volunteerGgUrl,
     };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Unknown error loading role" };

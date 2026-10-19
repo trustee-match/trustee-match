@@ -20,6 +20,7 @@ function makeRole(overrides: Partial<Role>): Role {
     verified: false,
     publishedAt: NOW.toISOString(),
     paused: false,
+    volunteerGgUrl: null,
     ...overrides,
   };
 }
@@ -39,6 +40,7 @@ function makeCandidate(overrides: Partial<Candidate>): Candidate {
     openInterests: 0,
     activeWithOrganisations: [],
     paused: false,
+    motivation: null,
     ...overrides,
   };
 }

@@ -14,6 +14,13 @@ export default function Home() {
           your skills would fill, and why, in about two minutes. When you and a board both say yes, we
           introduce you over email. No application form, no gatekeeper.
         </p>
+        <p className="max-w-2xl text-sm text-ink-muted">
+          Never sat on a board before? Most charities don&apos;t need a subject expert — good judgement,
+          reliability and genuinely caring about the cause count for more.{" "}
+          <Link href="/join/guide" className="text-sea underline">
+            Am I ready to be a trustee?
+          </Link>
+        </p>
         <div className="flex flex-wrap gap-3">
           <Link href="/join" className="rounded-md bg-sea px-5 py-3 font-medium text-white dark:text-bg">
             Apply with LinkedIn

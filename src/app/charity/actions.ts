@@ -1,5 +1,6 @@
 "use server";
 
+import { extractRole, type ExtractedRole } from "@/lib/ai/extract-role";
 import { findOrCreateAuthUser, upsertProfileWithoutDowngrading } from "@/lib/auth/shadow-user";
 import { CANDIDATE_SELECT, CARD_SELECT, ROLE_SELECT, toCandidate, toCard, toRole, type CandidateRow, type CardRow, type RoleRow } from "@/lib/db/mappers";
 import { clearInterest, getCandidateContact, recordInterest, type Contact } from "@/lib/jobs/interest";
@@ -7,6 +8,56 @@ import { triggerMatch } from "@/lib/jobs/trigger";
 import { diagnoseNoMatchForRole, type NoMatchDiagnosis } from "@/lib/matching/no-match-feedback";
 import type { BoardSkillCell, Candidate, Card, Role } from "@/lib/matching/types";
 import { createAdminClient } from "@/lib/supabase/admin";
+
+// AI import for the charity side, mirroring src/app/join/actions.ts's extractFromPdf/
+// Docx/Text — AGC feedback (planning/feedback/agc1.md, Wayne): "liked the button on the
+// trustee profile to draw from LinkedIn or upload a cv, but couldn't see a facility for
+// us?" See planning/feedback/agc1-response-draft.md, issue A.
+
+export type ExtractRoleResult = { ok: true; role: ExtractedRole } | { ok: false; error: string };
+
+export async function extractRoleFromText(text: string): Promise<ExtractRoleResult> {
+  if (!text.trim()) return { ok: false, error: "Paste a role description first." };
+  const role = await extractRole({ kind: "text", text });
+  if (!role) {
+    return {
+      ok: false,
+      error:
+        "AI extraction returned nothing — most likely ANTHROPIC_API_KEY isn't set in .env.local (or the dev server hasn't been restarted since it was added), or Claude declined to process this text.",
+    };
+  }
+  return { ok: true, role };
+}
+
+export async function extractRoleFromPdf(base64: string): Promise<ExtractRoleResult> {
+  if (!base64.trim()) return { ok: false, error: "Choose a PDF file first." };
+  const role = await extractRole({ kind: "pdf", base64 });
+  if (!role) {
+    return {
+      ok: false,
+      error:
+        "AI extraction returned nothing — most likely ANTHROPIC_API_KEY isn't set in .env.local (or the dev server hasn't been restarted since it was added), or Claude declined to process this file.",
+    };
+  }
+  return { ok: true, role };
+}
+
+export async function extractRoleFromDocx(base64: string): Promise<ExtractRoleResult> {
+  if (!base64.trim()) return { ok: false, error: "Choose a .docx file first." };
+  try {
+    const role = await extractRole({ kind: "docx", base64 });
+    if (!role) {
+      return {
+        ok: false,
+        error:
+          "AI extraction returned nothing — most likely ANTHROPIC_API_KEY isn't set in .env.local (or the dev server hasn't been restarted since it was added), or Claude declined to process this file.",
+      };
+    }
+    return { ok: true, role };
+  } catch {
+    return { ok: false, error: "Couldn't read that file — make sure it's a .docx (not .doc, which isn't supported), and not password-protected." };
+  }
+}
 
 // Internal test-harness actions for the pilot charity side, mirroring src/app/join/actions.ts.
 // Organisations need no auth user (unlike candidates) — they're a plain table, so this is
@@ -29,6 +80,10 @@ export interface RoleInput {
   missingSkills: string[];
   thinSkills: string[];
   diversityPreference: string | null;
+  /** Deep-link back to the role's volunteer.gg listing, if it has one — credited on the
+   *  public role card (src/components/cards.tsx). planning/feedback/agc1-response-draft.md,
+   *  issue B. */
+  volunteerGgUrl: string | null;
 }
 
 export type PublishResult = { ok: true; roleId: string } | { ok: false; error: string };
@@ -89,6 +144,7 @@ export async function publishRoleAndMatch(input: RoleInput): Promise<PublishResu
         board_skills: boardSkills,
         must_have_skills: input.mustHaveSkills,
         diversity_preference: input.diversityPreference,
+        volunteer_gg_url: input.volunteerGgUrl,
         status: "published",
         published_at: new Date().toISOString(),
       })

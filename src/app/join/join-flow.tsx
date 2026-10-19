@@ -50,6 +50,7 @@ export function JoinFlow() {
   const [headline, setHeadline] = useState("");
   const [skills, setSkills] = useState<(ExtractedSkill & { include: boolean })[]>([]);
   const [linkedinUrl, setLinkedinUrl] = useState("");
+  const [motivation, setMotivation] = useState("");
 
   // The stale-state bug this used to guard against (planning/testing-log.md) can't
   // recur now: confirming navigates to a different route (/join/candidate/[id]) rather
@@ -107,6 +108,7 @@ export function JoinFlow() {
       conflictOrgNames: conflictText.split(",").map((s) => s.trim()).filter(Boolean),
       cvText,
       linkedinUrl: linkedinUrl.trim() || null,
+      motivation: motivation.trim() || null,
     };
     const confirmed = await confirmProfileAndMatch(input);
     if (!confirmed.ok) {
@@ -138,6 +140,20 @@ export function JoinFlow() {
             onChange={(e) => setHeadline(e.target.value)}
             className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm"
           />
+        </label>
+
+        <label className="block space-y-1">
+          <span className="text-sm font-medium">What draws you to this kind of work?</span>
+          <textarea
+            value={motivation}
+            onChange={(e) => setMotivation(e.target.value)}
+            rows={3}
+            className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm"
+            placeholder="e.g. I grew up relying on a charity like this one, and want to give back on the board side"
+          />
+          <span className="block text-xs text-ink-muted">
+            Shown to charities alongside your skills — sometimes what you care about matters as much as your CV.
+          </span>
         </label>
 
         <label className="block space-y-1">
