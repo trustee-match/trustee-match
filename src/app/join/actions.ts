@@ -29,6 +29,24 @@ export async function extractFromText(cvText: string): Promise<ExtractResult> {
   return { ok: true, profile };
 }
 
+/** `base64` is the PDF's content with any `data:...;base64,` prefix already stripped —
+ *  either a LinkedIn "Save to PDF" profile export or a CV, per docs/matching-design.md
+ *  §3.2's "Import your LinkedIn profile" path. Claude extracts `linkedin_url` from the
+ *  document itself when present (extract-profile.ts); nothing here parses the PDF by
+ *  hand or scrapes linkedin.com — it's the candidate's own exported file. */
+export async function extractFromPdf(base64: string): Promise<ExtractResult> {
+  if (!base64.trim()) return { ok: false, error: "Choose a PDF file first." };
+  const profile = await extractProfile({ kind: "pdf", base64 });
+  if (!profile) {
+    return {
+      ok: false,
+      error:
+        "AI extraction returned nothing — most likely ANTHROPIC_API_KEY isn't set in .env.local (or the dev server hasn't been restarted since it was added), or Claude declined to process this file.",
+    };
+  }
+  return { ok: true, profile };
+}
+
 export interface ConfirmInput {
   name: string;
   email: string;
@@ -43,6 +61,10 @@ export interface ConfirmInput {
    *  was submitted against what the engine extracted (see planning/demo-scaffolding.md).
    *  Not shown back to the candidate anywhere yet; demo/testing-only for now. */
   cvText: string;
+  /** Captured from a LinkedIn PDF export (or typed CV text that mentions it), confirmed
+   *  by the candidate like every other extracted field. Revealed to the charity only at
+   *  the match stage (docs/matching-design.md §3.2) — see getCandidateContact. */
+  linkedinUrl: string | null;
 }
 
 export type ConfirmResult = { ok: true; candidateId: string } | { ok: false; error: string };
@@ -65,6 +87,7 @@ export async function confirmProfileAndMatch(input: ConfirmInput): Promise<Confi
       id: userId,
       headline: input.headline,
       cv_text: input.cvText,
+      linkedin_url: input.linkedinUrl,
       hours_per_month: input.hoursPerMonth,
       prior_board_experience: input.priorBoardExperience,
       read_guide: input.readGuide,

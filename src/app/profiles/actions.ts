@@ -7,18 +7,27 @@ import { createAdminClient } from "@/lib/supabase/admin";
 // product. See planning/demo-scaffolding.md: this whole file, and the modal UI that
 // calls it, needs to be deleted (not just hidden) when the demo scaffolding comes out.
 
-export type CandidateSubmission = { ok: true; name: string; email: string | null; headline: string | null; cvText: string | null } | { ok: false; error: string };
+export type CandidateSubmission =
+  | { ok: true; name: string; email: string | null; headline: string | null; cvText: string | null; linkedinUrl: string | null }
+  | { ok: false; error: string };
 
 export async function getCandidateSubmission(candidateId: string): Promise<CandidateSubmission> {
   try {
     const db = createAdminClient();
     const [{ data: candRow, error }, { data: profile }, { data: user }] = await Promise.all([
-      db.from("candidates").select("headline, cv_text").eq("id", candidateId).single(),
+      db.from("candidates").select("headline, cv_text, linkedin_url").eq("id", candidateId).single(),
       db.from("profiles").select("display_name").eq("id", candidateId).single(),
       db.auth.admin.getUserById(candidateId),
     ]);
     if (error) throw new Error(error.message);
-    return { ok: true, name: profile?.display_name ?? "Unnamed candidate", email: user?.user?.email ?? null, headline: candRow?.headline ?? null, cvText: candRow?.cv_text ?? null };
+    return {
+      ok: true,
+      name: profile?.display_name ?? "Unnamed candidate",
+      email: user?.user?.email ?? null,
+      headline: candRow?.headline ?? null,
+      cvText: candRow?.cv_text ?? null,
+      linkedinUrl: candRow?.linkedin_url ?? null,
+    };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Unknown error loading candidate" };
   }

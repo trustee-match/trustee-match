@@ -129,6 +129,7 @@ export async function runFullReset(): Promise<ResetSummary> {
         id: userId,
         headline: c.headline,
         cv_text: c.cvText,
+        linkedin_url: c.linkedinUrl,
         hours_per_month: c.hoursPerMonth,
         prior_board_experience: c.priorBoardExperience,
         read_guide: c.readGuide,

@@ -11,7 +11,7 @@ import { getCandidateSubmission, getRoleSubmission } from "./actions";
 // entry in planning/responsible-design-decisions.md on why storing raw CV text is a new
 // category of data, not just a display change).
 
-type State = { kind: "closed" } | { kind: "loading" } | { kind: "error"; message: string } | { kind: "candidate"; name: string; email: string | null; headline: string | null; cvText: string | null } | {
+type State = { kind: "closed" } | { kind: "loading" } | { kind: "error"; message: string } | { kind: "candidate"; name: string; email: string | null; headline: string | null; cvText: string | null; linkedinUrl: string | null } | {
   kind: "role";
   orgName: string;
   title: string;
@@ -71,6 +71,13 @@ export function SubmissionModalTrigger({ type, id, label }: { type: "candidate" 
                 <div>
                   <h2 className="font-serif text-xl font-semibold">{state.name}</h2>
                   <p className="text-sm text-ink-muted">{state.email} · {state.headline}</p>
+                  {state.linkedinUrl && (
+                    <p className="text-sm">
+                      <a href={state.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-sea underline">
+                        {state.linkedinUrl}
+                      </a>
+                    </p>
+                  )}
                 </div>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">As submitted — CV / personal statement</p>

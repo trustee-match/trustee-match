@@ -51,7 +51,19 @@ export interface InteractiveActions {
   error?: string | null;
 }
 
-function Actions({ primary, activeLabel, interactive }: { primary: string; activeLabel: string; interactive?: InteractiveActions }) {
+/** What this side's "yes" reveals to the other, if they both say yes — differs by card:
+ *  a candidate has a LinkedIn to share, a charity's board contact doesn't. */
+function Actions({
+  primary,
+  activeLabel,
+  shareLine,
+  interactive,
+}: {
+  primary: string;
+  activeLabel: string;
+  shareLine: string;
+  interactive?: InteractiveActions;
+}) {
   if (!interactive) {
     // Read-only context: the real buttons write interests and carry the
     // consent wording below (design §5.2), but there's no signed-in actor here to act
@@ -65,9 +77,7 @@ function Actions({ primary, activeLabel, interactive }: { primary: string; activ
           <button disabled className="rounded-md border border-line px-4 py-2 text-sm">Not for me</button>
           <button disabled className="rounded-md border border-line px-4 py-2 text-sm">Save</button>
         </div>
-        <p className="text-xs text-ink-muted">
-          If they say yes too, we&apos;ll introduce you both by email and share your name and email.
-        </p>
+        <p className="text-xs text-ink-muted">If they say yes too, we&apos;ll introduce you both by email and share {shareLine}.</p>
       </div>
     );
   }
@@ -87,6 +97,15 @@ function Actions({ primary, activeLabel, interactive }: { primary: string; activ
                 ·{" "}
                 <a href={`mailto:${matchedContact.email}`} className="underline">
                   {matchedContact.email}
+                </a>
+              </>
+            ) : null}
+            {matchedContact.linkedinUrl ? (
+              <>
+                {" "}
+                ·{" "}
+                <a href={matchedContact.linkedinUrl} target="_blank" rel="noopener noreferrer" className="underline">
+                  LinkedIn
                 </a>
               </>
             ) : null}
@@ -124,9 +143,7 @@ function Actions({ primary, activeLabel, interactive }: { primary: string; activ
         </button>
       </div>
       {error && <p className="text-xs text-missing">{error}</p>}
-      <p className="text-xs text-ink-muted">
-        If they say yes too, we&apos;ll introduce you both by email and share your name and email.
-      </p>
+      <p className="text-xs text-ink-muted">If they say yes too, we&apos;ll introduce you both by email and share {shareLine}.</p>
     </div>
   );
 }
@@ -151,7 +168,7 @@ export function RoleCard({ role, card, interactive }: { role: Role; card: Card; 
       </header>
       <SkillsGrid role={role} />
       <Why card={card} label="Why you" />
-      <Actions primary="Interested" activeLabel="Interested" interactive={interactive} />
+      <Actions primary="Interested" activeLabel="Interested" shareLine="your name, email and LinkedIn" interactive={interactive} />
     </article>
   );
 }
@@ -190,7 +207,7 @@ export function CandidateCard({
         ))}
       </ul>
       <Why card={card} label="Why this person" />
-      <Actions primary="Invite" activeLabel="Invited" interactive={interactive} />
+      <Actions primary="Invite" activeLabel="Invited" shareLine="your name and email" interactive={interactive} />
     </article>
   );
 }

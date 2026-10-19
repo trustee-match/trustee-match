@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { CAUSES } from "@/lib/config";
-import { confirmProfileAndMatch, extractFromText, type ConfirmInput } from "./actions";
+import { confirmProfileAndMatch, extractFromPdf, extractFromText, type ConfirmInput } from "./actions";
 
 type ExtractedSkill = { skill: string; level: string; evidence: string };
 
@@ -12,12 +12,29 @@ type Step =
   | { kind: "intro" }
   | { kind: "review"; headline: string; skills: (ExtractedSkill & { include: boolean })[]; suggestedCauses: string[]; priorBoardExperience: boolean };
 
+/** Reads a File into a bare base64 string (no `data:...;base64,` prefix) for the PDF
+ *  extraction server action — sent as a plain string since server actions don't take a
+ *  raw File/Blob argument directly. */
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const commaIndex = result.indexOf(",");
+      resolve(commaIndex === -1 ? result : result.slice(commaIndex + 1));
+    };
+    reader.onerror = () => reject(reader.error ?? new Error("Could not read the file"));
+    reader.readAsDataURL(file);
+  });
+}
+
 export function JoinFlow() {
   const router = useRouter();
   const [step, setStep] = useState<Step>({ kind: "intro" });
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [cvText, setCvText] = useState("");
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,6 +46,7 @@ export function JoinFlow() {
   const [conflictText, setConflictText] = useState("");
   const [headline, setHeadline] = useState("");
   const [skills, setSkills] = useState<(ExtractedSkill & { include: boolean })[]>([]);
+  const [linkedinUrl, setLinkedinUrl] = useState("");
 
   // The stale-state bug this used to guard against (planning/testing-log.md) can't
   // recur now: confirming navigates to a different route (/join/candidate/[id]) rather
@@ -41,8 +59,16 @@ export function JoinFlow() {
       setError("Enter your name and email first.");
       return;
     }
+    if (!pdfFile && !cvText.trim()) {
+      setError("Upload a LinkedIn/CV PDF, or paste your CV or a personal statement.");
+      return;
+    }
     setLoading(true);
-    const result = await extractFromText(cvText);
+    // A PDF (LinkedIn's own "Save to PDF" export, or a CV) takes priority over pasted
+    // text if both are present — docs/matching-design.md §3.2's "Import your LinkedIn
+    // profile" path, now actually wired up rather than just extract-profile.ts
+    // supporting it with nothing in the UI to reach it.
+    const result = pdfFile ? await extractFromPdf(await fileToBase64(pdfFile)) : await extractFromText(cvText);
     setLoading(false);
     if (!result.ok) {
       setError(result.error);
@@ -53,6 +79,7 @@ export function JoinFlow() {
     setSkills(profile.skills.map((s) => ({ ...s, include: true })));
     setCauses(profile.suggested_causes);
     setPriorBoardExperience(profile.prior_board_experience);
+    setLinkedinUrl(profile.linkedin_url ?? "");
     setStep({ kind: "review", headline: profile.headline ?? "", skills: profile.skills.map((s) => ({ ...s, include: true })), suggestedCauses: profile.suggested_causes, priorBoardExperience: profile.prior_board_experience });
   }
 
@@ -70,6 +97,7 @@ export function JoinFlow() {
       readGuide,
       conflictOrgNames: conflictText.split(",").map((s) => s.trim()).filter(Boolean),
       cvText,
+      linkedinUrl: linkedinUrl.trim() || null,
     };
     const confirmed = await confirmProfileAndMatch(input);
     if (!confirmed.ok) {
@@ -101,6 +129,19 @@ export function JoinFlow() {
             onChange={(e) => setHeadline(e.target.value)}
             className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm"
           />
+        </label>
+
+        <label className="block space-y-1">
+          <span className="text-sm font-medium">LinkedIn profile URL (optional)</span>
+          <input
+            value={linkedinUrl}
+            onChange={(e) => setLinkedinUrl(e.target.value)}
+            className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm"
+            placeholder="https://www.linkedin.com/in/your-name"
+          />
+          <span className="block text-xs text-ink-muted">
+            Only shown to a charity once you both say yes — never before, and never to anyone browsing.
+          </span>
         </label>
 
         <div className="space-y-2">
@@ -196,7 +237,8 @@ export function JoinFlow() {
     <div className="max-w-2xl space-y-6">
       <h1 className="font-serif text-3xl font-semibold">Become a trustee</h1>
       <p className="text-ink-muted">
-        Enter your name and email, paste in your CV or a personal statement, and see which boards need your skills.
+        Enter your name and email, then upload your LinkedIn profile (from LinkedIn&apos;s own{" "}
+        <em>More → Save to PDF</em>) or a CV, or just paste in some text — and see which boards need your skills.
       </p>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -221,12 +263,27 @@ export function JoinFlow() {
       </div>
 
       <label className="block space-y-1">
-        <span className="text-sm font-medium">CV or personal statement</span>
+        <span className="text-sm font-medium">LinkedIn profile PDF or a CV (PDF)</span>
+        <input
+          type="file"
+          accept="application/pdf"
+          onChange={(e) => setPdfFile(e.target.files?.[0] ?? null)}
+          className="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-sea file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white dark:file:text-bg"
+        />
+        <span className="block text-xs text-ink-muted">
+          On LinkedIn: your profile → the &ldquo;More&rdquo; button → Save to PDF. We never fetch anything from
+          linkedin.com ourselves — only the file you export and upload yourself.
+        </span>
+      </label>
+
+      <label className="block space-y-1">
+        <span className="text-sm font-medium">Or paste a CV or personal statement{pdfFile ? " (ignored while a PDF is selected)" : ""}</span>
         <textarea
           value={cvText}
           onChange={(e) => setCvText(e.target.value)}
-          rows={14}
-          className="w-full rounded-md border border-line bg-surface px-3 py-2 font-mono text-xs"
+          rows={10}
+          disabled={Boolean(pdfFile)}
+          className="w-full rounded-md border border-line bg-surface px-3 py-2 font-mono text-xs disabled:opacity-50"
           placeholder="Paste CV text here"
         />
       </label>

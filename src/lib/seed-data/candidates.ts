@@ -21,6 +21,9 @@ import type { Level } from "../matching/types";
 export interface PilotCandidate {
   name: string;
   email: string;
+  /** Null for Peter Collins — consistent with his own words ("I've never been one for
+   *  office work and haven't got a proper CV"); real for everyone else. */
+  linkedinUrl: string | null;
   headline: string;
   /** The CV text (or, for Peter Collins, personal statement) as it would be pasted into
    *  /join — stored to candidates.cv_text on seed, same as a real confirm does, so the
@@ -39,6 +42,7 @@ export const PILOT_CANDIDATES: PilotCandidate[] = [
   {
     name: "David Ozanne",
     email: "david.ozanne@test.local",
+    linkedinUrl: "https://www.linkedin.com/in/david-ozanne",
     headline: "Semi-retired Finance Director and Financial Controller",
     cvText: `David Ozanne
 Semi-retired Finance Director and Financial Controller
@@ -93,6 +97,7 @@ Chartered Accountant (ACA); BSc Accounting and Finance`,
   {
     name: "Beatriz Gouveia",
     email: "beatriz.gouveia@test.local",
+    linkedinUrl: "https://www.linkedin.com/in/beatriz-gouveia",
     headline: "Social Worker | Safeguarding and Young People's Services",
     cvText: `Beatriz Gouveia
 Social Worker | Safeguarding and Young People's Services
@@ -153,6 +158,7 @@ professional development training.`,
   {
     name: "Emily Foster",
     email: "emily.foster@test.local",
+    linkedinUrl: "https://www.linkedin.com/in/emily-foster",
     headline: "HR Adviser | Former Marketing and Communications Professional",
     cvText: `Emily Foster
 HR Adviser | Former Marketing and Communications Professional
@@ -213,6 +219,7 @@ Communications; additional training in workplace mediation.`,
   {
     name: "Michael Le Page",
     email: "michael.lepage@test.local",
+    linkedinUrl: "https://www.linkedin.com/in/michael-le-page",
     headline: "Business Development and Sales Professional",
     cvText: `Michael Le Page
 Business Development and Sales Professional
@@ -272,6 +279,7 @@ development in leadership and coaching.`,
   {
     name: "Peter Collins",
     email: "peter.collins@test.local",
+    linkedinUrl: null,
     headline: "Retired taxi driver and former Scout Leader",
     cvText: `I've recently retired after driving taxis for about 50 years. I've met just about
 every sort of person you can imagine and heard plenty of stories along the way. Most
@@ -312,6 +320,7 @@ that I'm retired.`,
   {
     name: "Liga Kalnina",
     email: "liga.kalnina@test.local",
+    linkedinUrl: "https://www.linkedin.com/in/liga-kalnina",
     headline: "Digital Product Manager | Technology and Service Improvement",
     cvText: `Liga Kalnina
 Digital Product Manager | Technology and Service Improvement
@@ -363,6 +372,7 @@ certification.`,
   {
     name: "Robert Williams",
     email: "robert.williams@test.local",
+    linkedinUrl: "https://www.linkedin.com/in/robert-williams",
     headline: "School Headteacher | Education and Community Leadership",
     cvText: `Robert Williams
 School Headteacher | Education and Community Leadership
@@ -416,6 +426,7 @@ safeguarding leadership training.`,
   {
     name: "Leanne Robilliard",
     email: "leanne.robilliard@test.local",
+    linkedinUrl: "https://www.linkedin.com/in/leanne-robilliard",
     headline: "Freelance Artist and Community Arts Facilitator",
     cvText: `Leanne Robilliard
 Freelance Artist and Community Arts Facilitator
@@ -473,6 +484,7 @@ awareness training.`,
   {
     name: "Sofia Nobrega",
     email: "sofia.nobrega@test.local",
+    linkedinUrl: "https://www.linkedin.com/in/sofia-nobrega",
     headline: "Employment Solicitor | Employment Rights and Governance",
     cvText: `Sofia Nobrega
 Employment Solicitor | Employment Rights and Governance
@@ -521,6 +533,7 @@ employment law.`,
   {
     name: "Samuel Carter",
     email: "samuel.carter@test.local",
+    linkedinUrl: "https://www.linkedin.com/in/samuel-carter",
     headline: "Community Development Officer | Volunteer and Partnership Coordination",
     cvText: `Samuel Carter
 Community Development Officer | Volunteer and Partnership Coordination
@@ -579,6 +592,7 @@ BA (Hons) Sociology; Certificate in Community Development; First Aid at Work.`,
   {
     name: "Colin Mitchell",
     email: "colin.mitchell@test.local",
+    linkedinUrl: "https://www.linkedin.com/in/colin-mitchell",
     headline: "Finance Director",
     cvText: `Colin Mitchell
 Finance Director
@@ -618,6 +632,7 @@ Chartered Accountant (ACA)`,
   {
     name: "Paul Mauger",
     email: "paul.mauger@test.local",
+    linkedinUrl: "https://www.linkedin.com/in/paul-mauger",
     headline: "Company Secretary and Finance Professional",
     cvText: `Paul Mauger
 Company Secretary and Finance Professional
@@ -658,6 +673,7 @@ ICSA-chartered governance professional; AAT-qualified in accounting.`,
   {
     name: "Fatima Jardim",
     email: "fatima.jardim@test.local",
+    linkedinUrl: "https://www.linkedin.com/in/fatima-jardim",
     headline: "Retired District Nurse and Health Visitor",
     cvText: `Fatima Jardim
 Retired District Nurse and Health Visitor
@@ -701,6 +717,7 @@ Visiting).`,
   {
     name: "Andris Liepa",
     email: "andris.liepa@test.local",
+    linkedinUrl: "https://www.linkedin.com/in/andris-liepa",
     headline: "Retired Facilities and Community Centre Manager",
     cvText: `Andris Liepa
 Retired Facilities and Community Centre Manager

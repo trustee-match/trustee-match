@@ -65,15 +65,24 @@ export async function clearInterest(db: SupabaseClient, cardId: string, side: Si
 export interface Contact {
   name: string;
   email: string | null;
+  /** Only ever set for a candidate's contact (docs/matching-design.md §3.2: "Profile URL
+   *  captured, and revealed only at the match stage") — a charity's contact has none,
+   *  so getCharityContact never sets this field. Self-reported from their uploaded
+   *  LinkedIn PDF / CV text, not OAuth-verified — there is no "Continue with LinkedIn"
+   *  sign-in built (that needs a LinkedIn Developer App, see research-and-plan.md's week-0
+   *  plan; unbuilt, tracked alongside the broader auth gap in issue #8). */
+  linkedinUrl?: string | null;
 }
 
-/** A candidate's real, revealable identity — their own profile name + their real email. */
+/** A candidate's real, revealable identity — their own profile name, real email, and
+ *  (if they gave one) their LinkedIn profile URL. */
 export async function getCandidateContact(db: SupabaseClient, candidateId: string): Promise<Contact> {
-  const [{ data: profile }, { data: user }] = await Promise.all([
+  const [{ data: profile }, { data: user }, { data: candidate }] = await Promise.all([
     db.from("profiles").select("display_name").eq("id", candidateId).single(),
     db.auth.admin.getUserById(candidateId),
+    db.from("candidates").select("linkedin_url").eq("id", candidateId).single(),
   ]);
-  return { name: profile?.display_name ?? "This candidate", email: user?.user?.email ?? null };
+  return { name: profile?.display_name ?? "This candidate", email: user?.user?.email ?? null, linkedinUrl: candidate?.linkedin_url ?? null };
 }
 
 /** A charity's real contact, via org_members — null if no member is actually linked to
