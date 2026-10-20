@@ -126,7 +126,14 @@ export function JoinFlow({ email }: { email: string }) {
 
   if (step.kind === "review") {
     return (
-      <div className="max-w-2xl space-y-6">
+      // key="review" (and "intro" below) forces React to unmount/remount this subtree on
+      // the step transition, rather than diffing two unrelated sets of form fields
+      // positionally — without it, the intro step's Name input and the review step's
+      // Headline input sit at the same tree position and React tries to reuse the same
+      // DOM <input>, which is exactly what produces the "uncontrolled input becoming
+      // controlled" warning (the field changes but the DOM node's prior value doesn't
+      // reset the way a fresh mount would).
+      <div key="review" className="max-w-2xl space-y-6">
         <h1 className="font-serif text-2xl font-semibold">Check what we found</h1>
         <p className="text-sm text-ink-muted">Nothing is saved yet. Review and adjust before confirming.</p>
 
@@ -256,7 +263,7 @@ export function JoinFlow({ email }: { email: string }) {
   }
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div key="intro" className="max-w-2xl space-y-6">
       <h1 className="font-serif text-3xl font-semibold">Become a trustee</h1>
       <p className="text-ink-muted">
         Tell us your name and upload your CV — we&apos;ll show you the boards that could use exactly what
