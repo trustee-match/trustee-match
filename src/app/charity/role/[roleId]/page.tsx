@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { SuggestedTrusteesView } from "../../suggested-trustees-view";
@@ -12,6 +13,9 @@ export const instant = false;
 // the role id alone is no longer sufficient access — only a signed-in contact for that
 // role's organisation (org_members) can load this page.
 async function RoleResults({ params }: { params: Promise<{ roleId: string }> }) {
+  // See the matching note in join/candidate/[candidateId]/page.tsx — instant=false alone
+  // didn't stop the Date.now() prerender error; connection() does.
+  await connection();
   const { roleId } = await params;
   const supabase = await createClient();
   const {

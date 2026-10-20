@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { CharityFlow } from "./charity-flow";
@@ -17,6 +18,9 @@ export const instant = false;
 // Suspense-wrapped component, not the page's top-level export — see the matching note in
 // src/app/join/page.tsx for why (Cache Components).
 async function Gate() {
+  // See the matching note in join/candidate/[candidateId]/page.tsx — instant=false alone
+  // didn't stop the Date.now() prerender error; connection() does.
+  await connection();
   const supabase = await createClient();
   const {
     data: { user },

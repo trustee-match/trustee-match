@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { JoinFlow } from "./join-flow";
@@ -24,6 +25,12 @@ export const instant = false;
 // "blocking-prerender-current-time") if a dynamic read happens outside a Suspense
 // boundary. Same pattern as join/candidate/[candidateId]/page.tsx.
 async function Gate() {
+  // instant=false (above) wasn't enough on its own to stop Cache Components' background
+  // prerender-shell analysis from occasionally tripping over Date.now() inside the
+  // Supabase SDK's session check — confirmed live on join/candidate/[candidateId], same
+  // pattern here. connection() never resolves during that analysis, only at real request
+  // time, so everything after it is unambiguously out of the prerender path.
+  await connection();
   const supabase = await createClient();
   const {
     data: { user },
