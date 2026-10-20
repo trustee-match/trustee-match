@@ -2,15 +2,19 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { resetDemoData } from "./actions";
+import { useEffect, useState } from "react";
+import { amIOperator, resetDemoData } from "./actions";
 
 // A small, dismissible "meta layer" over the real product — explains that the site is
-// in demo mode, links to /profiles, and offers a self-service reset. Deliberately kept
-// visually separate from the actual app chrome (a floating corner widget, not a nav
-// item) so it reads as scaffolding around the product, not part of it. Shown on every
-// page via the root layout. See planning/demo-scaffolding.md: this whole component
-// needs to come out (or be gated off) before Production.
+// in demo mode, links to /profiles and /operator, and offers a self-service reset.
+// Deliberately kept visually separate from the actual app chrome (a floating corner
+// widget, not a nav item) so it reads as scaffolding around the product, not part of it.
+// Operator-only now (planning/responsible-design-decisions.md, Security) — it used to be
+// reachable by anyone behind the shared demo password, which stopped being appropriate
+// once real sign-in existed to check against. The check happens client-side on mount
+// (rather than making the whole root layout session-dependent) and fails closed: nothing
+// renders until amIOperator() confirms true, and resetDemoData re-checks server-side
+// regardless of what this component decided to show.
 
 type ResetState = { step: "idle" } | { step: "confirm1" } | { step: "confirm2" } | { step: "running" } | { step: "done" } | { step: "error"; message: string };
 
@@ -106,6 +110,13 @@ export function DemoModeWidget() {
   // it only resets to the collapsed pill on an actual fresh page load, which is a
   // reasonable default without the hydration complexity a persisted version needs.
   const [open, setOpen] = useState(false);
+  const [operator, setOperator] = useState(false);
+
+  useEffect(() => {
+    amIOperator().then(setOperator);
+  }, []);
+
+  if (!operator) return null;
 
   if (!open) {
     return (
@@ -129,18 +140,22 @@ export function DemoModeWidget() {
       </div>
 
       <p className="mt-2 text-sm text-ink-muted">
-        The site is in demo mode right now. That means it can only be accessed via password, and all charity and
-        candidate data is generated and fictional placeholder copy.
+        You&apos;re seeing this because you&apos;re signed in as an operator. Everyone else now goes through the
+        real sign-in — this panel, and raw profile browsing, are only visible to you.
       </p>
 
       <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm">
-        <li>Add more charities and trustee candidates from the menu above.</li>
+        <li>Add more charities and trustee candidates from the menu above — the real flows, same as anyone.</li>
         <li>
-          Impersonate each charity and trustee candidate via the{" "}
+          See how matching is actually performing across everyone at once on the{" "}
+          <Link href="/operator" className="text-sea underline">
+            operator overview
+          </Link>
+          , or browse raw records on{" "}
           <Link href="/profiles" className="text-sea underline">
-            profiles
-          </Link>{" "}
-          page and see how their matches look.
+            all profiles
+          </Link>
+          .
         </li>
         <li>
           Reset the data to the initial state — <ResetControl />
@@ -172,7 +187,7 @@ export function DemoModeWidget() {
       </div>
 
       <p className="mt-3 text-xs text-ink-muted">
-        NB profiles will be private in the final release, this is a feature for demo mode.
+        This panel and /profiles are operator-only now — not something a real candidate or charity contact can see.
       </p>
       <p className="mt-2 text-xs text-ink-muted">
         Email <a href="mailto:jon@theplan.co.uk" className="underline">jon@theplan.co.uk</a> if you have any issues

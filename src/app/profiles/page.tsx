@@ -1,21 +1,25 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
+import { connection } from "next/server";
 import { Suspense } from "react";
 import { causeLabel } from "@/lib/config";
+import { isOperator } from "@/lib/auth/operator";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { SubmissionModalTrigger } from "./submission-modal";
 
 export const metadata: Metadata = { title: "All profiles · Trustee Match" };
+// Entirely session-dependent — see the matching note in src/app/join/page.tsx.
+export const instant = false;
 
-// A live index of every candidate and charity role currently in the database — the
-// thing to come back to as test data changes shape, and the hub for giving someone a
-// guided tour without hunting for individual links. Replaces the old /demo route
-// (renamed to /profiles 2026-10-14, see planning/demo-scaffolding.md), which showed
-// fixed synthetic data (src/lib/demo.ts) rather than anything real; that fixture
-// data still exists and is still used by the matching engine's unit tests, just no
-// longer shown here. See planning/responsible-design-decisions.md (Privacy) for why an
-// aggregated, real-name index like this is an internal/test-only page, not a pattern the
-// real product should ever expose.
+// A live index of every candidate and charity role currently in the database — real
+// names and emails in one aggregated list, so operator-only now (planning/
+// responsible-design-decisions.md, Security) rather than reachable by anyone behind the
+// shared demo password. "View matches" links used to go to /join/candidate/[id] and
+// /charity/role/[id] — those pages now require being signed in as that exact person
+// (issue #12), which an operator reaching this page isn't, so those links were removed
+// rather than left as a dead end; /operator's matching overview covers that need instead.
 
 interface CandidateRow {
   id: string;
@@ -85,17 +89,28 @@ async function loadData() {
 }
 
 async function AllProfiles() {
+  await connection();
+  const session = await createClient();
+  const {
+    data: { user },
+  } = await session.auth.getUser();
+  if (!user) redirect("/sign-in?next=/profiles");
+  if (!(await isOperator(session, user.id))) notFound();
+
   const { candidates, roles } = await loadData();
 
   return (
     <div className="space-y-10">
       <header className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-gorse">Internal — every test record, live</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-gorse">Operator — internal, every test record, live</p>
         <h1 className="font-serif text-3xl font-semibold">All profiles</h1>
         <p className="max-w-2xl text-ink-muted">
-          Every candidate and charity role currently in the database, updated as new ones are added. This page isn&apos;t
-          part of the real product — it&apos;s a way to come back to any profile and see how matches and interest have
-          changed since you last looked. Click through to see that person&apos;s or charity&apos;s actual matches.
+          Every candidate and charity role currently in the database, updated as new ones are added. For matching
+          results, see the{" "}
+          <Link href="/operator" className="text-sea underline">
+            operator overview
+          </Link>{" "}
+          — this page is just the raw list, with each submission available below.
         </p>
       </header>
 
@@ -112,9 +127,6 @@ async function AllProfiles() {
                   {causeLabel(r.cause)} · about {r.hours_per_month} hrs/month · contact: {r.contact_name ?? "none on file"} ·{" "}
                   {r.status}
                 </p>
-                <Link href={`/charity/role/${r.id}`} className="text-sea underline">
-                  View matches
-                </Link>
               </div>
               <SubmissionModalTrigger type="role" id={r.id} label="View submission" />
             </div>
@@ -135,9 +147,6 @@ async function AllProfiles() {
                 <p className="text-ink-muted">
                   {c.headline} · {c.hours_per_month} hrs/month · {c.causes.map(causeLabel).join(", ")}
                 </p>
-                <Link href={`/join/candidate/${c.id}`} className="text-sea underline">
-                  View matches
-                </Link>
               </div>
               <SubmissionModalTrigger type="candidate" id={c.id} label="View CV" />
             </div>
