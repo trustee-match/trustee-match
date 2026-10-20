@@ -2,6 +2,7 @@
 
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { isOperator } from "@/lib/auth/operator";
+import { findOrCreateAuthUser } from "@/lib/auth/shadow-user";
 import { CANDIDATE_SELECT, CARD_SELECT, ROLE_SELECT, toCandidate, toCard, toRole, type CandidateRow, type CardRow, type RoleRow } from "@/lib/db/mappers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -65,12 +66,20 @@ export async function getOperatorOverview(): Promise<OperatorOverviewResult> {
   return { ok: true, rows, candidateCount: candidates.length };
 }
 
-export type PromoteResult = { ok: true; email: string } | { ok: false; error: string };
+export type PromoteResult = { ok: true; email: string; preSeeded: boolean } | { ok: false; error: string };
 
 /** Only an operator can create another operator — requireOperator above is the actual
- *  gate; a non-operator can never reach the email lookup below. The target must already
- *  have signed in at least once (a real auth.users row to promote) — this deliberately
- *  can't invite someone who's never used the site, only elevate an existing real account. */
+ *  gate; a non-operator can never reach the lookup below.
+ *
+ *  Pre-seeding (2026-10-20, Jon: "can I pre-seed the operators?"): if nobody's signed in
+ *  with this email yet, one is created via the admin API (findOrCreateAuthUser — the same
+ *  helper src/lib/jobs/reset.ts uses for seed personas) rather than refusing. This is
+ *  deliberately *not* a reopening of the old shadow-user vulnerability the rest of this
+ *  work closed (planning/responsible-design-decisions.md, issues #8/#12/#13): creating the
+ *  account grants nobody any access on its own — it only takes effect once that real
+ *  person proves they control the address via a genuine magic-link sign-in. Pre-seeding
+ *  just stages "this email becomes an operator the moment they actually sign in," the same
+ *  pattern as a Workspace admin assigning a role to an email before someone's first login. */
 export async function promoteToOperator(email: string): Promise<PromoteResult> {
   const check = await requireOperator();
   if (!check.ok) return { ok: false, error: check.error };
@@ -81,12 +90,14 @@ export async function promoteToOperator(email: string): Promise<PromoteResult> {
   const admin = createAdminClient();
   const { data: list, error: listError } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
   if (listError) return { ok: false, error: listError.message };
-  const target = list.users.find((u) => u.email?.toLowerCase() === trimmed);
-  if (!target) return { ok: false, error: `No one has signed in with ${trimmed} yet — ask them to sign in once first, then try again.` };
+  const existingUser = list.users.find((u) => u.email?.toLowerCase() === trimmed);
 
-  const { data: existing } = await admin.from("profiles").select("id, display_name").eq("id", target.id).maybeSingle();
-  const { error } = await admin.from("profiles").upsert({ id: target.id, kind: "operator", display_name: existing?.display_name ?? trimmed });
+  const preSeeded = !existingUser;
+  const userId = existingUser ? existingUser.id : await findOrCreateAuthUser(admin, trimmed, trimmed);
+
+  const { data: existingProfile } = await admin.from("profiles").select("id, display_name").eq("id", userId).maybeSingle();
+  const { error } = await admin.from("profiles").upsert({ id: userId, kind: "operator", display_name: existingProfile?.display_name ?? trimmed });
   if (error) return { ok: false, error: error.message };
 
-  return { ok: true, email: trimmed };
+  return { ok: true, email: trimmed, preSeeded };
 }

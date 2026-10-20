@@ -7,7 +7,7 @@ export function PromoteForm() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<string | null>(null);
+  const [done, setDone] = useState<{ email: string; preSeeded: boolean } | null>(null);
 
   async function handleSubmit() {
     setError(null);
@@ -19,7 +19,7 @@ export function PromoteForm() {
       setError(result.error);
       return;
     }
-    setDone(result.email);
+    setDone({ email: result.email, preSeeded: result.preSeeded });
     setEmail("");
   }
 
@@ -27,8 +27,9 @@ export function PromoteForm() {
     <div className="rounded-lg border border-line bg-surface p-4">
       <p className="text-sm font-medium">Add an operator</p>
       <p className="mt-1 text-xs text-ink-muted">
-        They need to have signed in at least once already (any page, via the normal email link) — this elevates
-        their existing account, it doesn&apos;t create a new one.
+        If they&apos;ve already signed in, this makes them an operator immediately. If not, it pre-seeds their
+        account — they become an operator the moment they sign in for the first time, same as anyone else, via the
+        normal email link.
       </p>
       <form
         onSubmit={(e) => {
@@ -49,7 +50,13 @@ export function PromoteForm() {
         </button>
       </form>
       {error && <p className="mt-2 text-sm text-missing">{error}</p>}
-      {done && <p className="mt-2 text-sm text-covered">{done} is now an operator.</p>}
+      {done && (
+        <p className="mt-2 text-sm text-covered">
+          {done.preSeeded
+            ? `${done.email} will become an operator the moment they sign in for the first time.`
+            : `${done.email} is now an operator.`}
+        </p>
+      )}
     </div>
   );
 }
