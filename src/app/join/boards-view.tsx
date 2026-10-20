@@ -10,15 +10,19 @@ type State =
   | { kind: "error"; message: string }
   | { kind: "loaded"; matches: CandidateMatch[]; diagnosis: NoMatchDiagnosis | null };
 
-/** Shared by the post-confirm results step and the shareable /join/candidate/[candidateId] URL. */
-export function BoardsView({ candidateId }: { candidateId: string }) {
+/** Rendered only by /join/candidate/[candidateId]/page.tsx, which has already verified
+ *  the signed-in session owns this candidateId before mounting this component — the
+ *  data-fetching actions below independently re-derive identity from the session too
+ *  (never trust a route param for identity), so there's no candidateId prop to thread
+ *  through here. */
+export function BoardsView() {
   const [state, setState] = useState<State>({ kind: "loading" });
   const [pending, setPending] = useState<string | null>(null);
   const [toggleError, setToggleError] = useState<{ cardId: string; message: string } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    getMatchesForCandidate(candidateId).then((result) => {
+    getMatchesForCandidate().then((result) => {
       if (cancelled) return;
       if (!result.ok) {
         setState({ kind: "error", message: result.error });
@@ -29,14 +33,14 @@ export function BoardsView({ candidateId }: { candidateId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [candidateId]);
+  }, []);
 
   async function handleToggle(match: CandidateMatch, action: "interested" | "pass") {
     if (state.kind !== "loaded") return;
     const nextAction = match.interest === action ? null : action;
     setPending(match.cardId);
     setToggleError(null);
-    const result = await toggleCandidateInterest(match.cardId, match.role.id, candidateId, nextAction);
+    const result = await toggleCandidateInterest(match.cardId, match.role.id, nextAction);
     setPending(null);
     if (!result.ok) {
       setToggleError({ cardId: match.cardId, message: result.error });
@@ -45,7 +49,7 @@ export function BoardsView({ candidateId }: { candidateId: string }) {
     if (result.matched && !match.matched) {
       // Just became a mutual match — refetch so the charity's contact details (not
       // known client-side) come through on the card rather than showing as empty.
-      const refreshed = await getMatchesForCandidate(candidateId);
+      const refreshed = await getMatchesForCandidate();
       if (refreshed.ok) {
         setState({ kind: "loaded", matches: refreshed.matches, diagnosis: "diagnosis" in refreshed ? refreshed.diagnosis : null });
         return;

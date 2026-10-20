@@ -30,11 +30,10 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
-export function JoinFlow() {
+export function JoinFlow({ email }: { email: string }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>({ kind: "intro" });
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
   const [cvText, setCvText] = useState("");
   const [linkedinFile, setLinkedinFile] = useState<File | null>(null);
   const [cvFile, setCvFile] = useState<File | null>(null);
@@ -59,8 +58,8 @@ export function JoinFlow() {
 
   async function handleExtract() {
     setError(null);
-    if (!name.trim() || !email.trim()) {
-      setError("Enter your name and email first.");
+    if (!name.trim()) {
+      setError("Enter your name first.");
       return;
     }
     const file = linkedinFile ?? cvFile;
@@ -98,7 +97,6 @@ export function JoinFlow() {
     setLoading(true);
     const input: ConfirmInput = {
       name,
-      email,
       headline,
       skills,
       causes,
@@ -264,30 +262,22 @@ export function JoinFlow() {
     <div className="max-w-2xl space-y-6">
       <h1 className="font-serif text-3xl font-semibold">Become a trustee</h1>
       <p className="text-ink-muted">
-        Tell us your name and email, then apply with LinkedIn — we&apos;ll show you the boards that could use
-        exactly what you&apos;ve got.
+        Tell us your name, then apply with LinkedIn — we&apos;ll show you the boards that could use exactly what
+        you&apos;ve got.
       </p>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="block space-y-1">
-          <span className="text-sm font-medium">Name</span>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm"
-            placeholder="e.g. David Ozanne"
-          />
-        </label>
-        <label className="block space-y-1">
-          <span className="text-sm font-medium">Email</span>
-          <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm"
-            placeholder="e.g. david.ozanne@example.com"
-          />
-        </label>
-      </div>
+      <label className="block max-w-sm space-y-1">
+        <span className="text-sm font-medium">Name</span>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm"
+          placeholder="e.g. David Ozanne"
+        />
+      </label>
+      <p className="text-xs text-ink-muted">
+        Signed in as <strong>{email}</strong>.
+      </p>
 
       {/* Branded as the primary path per the user's steer (2026-10-19): this is still just a
           PDF upload under the hood (see fileToBase64 above) — no OIDC, no LinkedIn account

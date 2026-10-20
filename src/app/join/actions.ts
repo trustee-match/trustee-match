@@ -1,18 +1,25 @@
 "use server";
 
 import { extractProfile, type ExtractedProfile } from "@/lib/ai/extract-profile";
-import { findOrCreateAuthUser, upsertProfileWithoutDowngrading } from "@/lib/auth/shadow-user";
+import { upsertProfileWithoutDowngrading } from "@/lib/auth/shadow-user";
 import { CARD_SELECT, ROLE_SELECT, toCandidate, toCard, toRole, type CandidateRow, type CardRow, type RoleRow } from "@/lib/db/mappers";
 import { clearInterest, getCharityContact, recordInterest, type Contact } from "@/lib/jobs/interest";
 import { triggerMatch } from "@/lib/jobs/trigger";
 import { diagnoseNoMatchForCandidate, type NoMatchDiagnosis } from "@/lib/matching/no-match-feedback";
 import type { Card, Role } from "@/lib/matching/types";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 
-// Internal test-harness actions for the pilot: find or create a "shadow" auth user by
-// email via the admin API rather than building real sign-in (magic link / LinkedIn)
-// yet. Fine for Jon/Nick running the 14 prepared personas through the real engine;
-// not how a real candidate will sign up once /join is built out properly.
+// Real sign-in (src/app/sign-in) replaced the old admin-API "shadow user created from a
+// typed email, no credential check" pattern — see planning/responsible-design-decisions.md,
+// Security, issues #8/#12/#13. Every action below that writes or reads a specific
+// candidate's data derives that candidate's identity from the real signed-in session
+// (src/lib/supabase/server.ts's createClient + auth.getUser()), never from a
+// client-supplied id — a client argument is at most a hint for what to display, never
+// what to act as. createAdminClient() is still used, deliberately, only for genuinely
+// engine-owned operations (triggerMatch) and the narrow, already-authorized "reveal a
+// matched contact's real email" lookup (getCharityContact, which needs auth.admin.* —
+// unavailable to the session client).
 
 export type ExtractResult = { ok: true; profile: ExtractedProfile } | { ok: false; error: string };
 
@@ -69,8 +76,8 @@ export async function extractFromDocx(base64: string): Promise<ExtractResult> {
 }
 
 export interface ConfirmInput {
+  /** Display name only — identity comes from the signed-in session, not this field. */
   name: string;
-  email: string;
   headline: string;
   skills: { skill: string; level: string; evidence: string; include: boolean }[];
   causes: string[];
@@ -97,8 +104,13 @@ export type ConfirmResult = { ok: true; candidateId: string } | { ok: false; err
 
 export async function confirmProfileAndMatch(input: ConfirmInput): Promise<ConfirmResult> {
   try {
-    const db = createAdminClient();
-    const userId = await findOrCreateAuthUser(db, input.email, input.name);
+    const db = await createClient();
+    const {
+      data: { user },
+    } = await db.auth.getUser();
+    if (!user) return { ok: false, error: "You need to sign in first." };
+    const userId = user.id;
+
     await upsertProfileWithoutDowngrading(db, userId, "candidate", input.name);
 
     const conflictIds: string[] = [];
@@ -164,9 +176,20 @@ export type MatchesResult =
   | { ok: true; matches: []; diagnosis: NoMatchDiagnosis }
   | { ok: false; error: string };
 
-export async function getMatchesForCandidate(candidateId: string): Promise<MatchesResult> {
+export async function getMatchesForCandidate(): Promise<MatchesResult> {
   try {
-    const db = createAdminClient();
+    const db = await createClient();
+    const {
+      data: { user },
+    } = await db.auth.getUser();
+    if (!user) return { ok: false, error: "You need to sign in first." };
+    const candidateId = user.id;
+    // getCharityContact needs auth.admin.getUserById (only available to the service
+    // role) to reveal a matched charity contact's real email — every other read below
+    // goes through the session-aware `db` client, enforced by RLS (cards_candidate_read,
+    // candidates_self, interests_candidate), so this action can never return another
+    // candidate's data even if it were somehow called for one.
+    const admin = createAdminClient();
 
     const { data: cardRows, error: cardsErr } = await db
       .from("cards")
@@ -213,7 +236,7 @@ export async function getMatchesForCandidate(candidateId: string): Promise<Match
           return { role: byRole.get(card.roleId)!, card, cardId, interest: existing?.action ?? null, matched: existing?.matched ?? false };
         })
         .filter((m) => m.role)
-        .map(async (m) => ({ ...m, matchedContact: m.matched ? await getCharityContact(db, m.role.organisationId) : null })),
+        .map(async (m) => ({ ...m, matchedContact: m.matched ? await getCharityContact(admin, m.role.organisationId) : null })),
     );
     return { ok: true, matches };
   } catch (error) {
@@ -226,10 +249,26 @@ export type ToggleInterestResult =
   | { ok: false; error: string; alreadyMatched?: boolean };
 
 /** Sets, changes, or clears (pass `null`) the candidate side's interest in one card.
- *  Unlike the charity side, a candidate already has their own real profile id (created
- *  at confirm time), so it acts as its own `acted_by` — no shared test account needed. */
-export async function toggleCandidateInterest(cardId: string, roleId: string, candidateId: string, action: "interested" | "pass" | null): Promise<ToggleInterestResult> {
+ *  Unlike the charity side, a candidate already has their own real profile id (set at
+ *  confirm time to their real auth.uid()), so it acts as its own `acted_by`. */
+export async function toggleCandidateInterest(cardId: string, roleId: string, action: "interested" | "pass" | null): Promise<ToggleInterestResult> {
   try {
+    const session = await createClient();
+    const {
+      data: { user },
+    } = await session.auth.getUser();
+    if (!user) return { ok: false, error: "You need to sign in first." };
+    const candidateId = user.id;
+
+    // cards_candidate_read RLS already restricts this to the signed-in user's own
+    // cards — this read doubles as the ownership check before any write below.
+    const { data: card } = await session.from("cards").select("id").eq("id", cardId).eq("candidate_id", candidateId).maybeSingle();
+    if (!card) return { ok: false, error: "That card isn't yours." };
+
+    // recordInterest/clearInterest need to read both sides' interest rows to detect a
+    // mutual match — inherently cross-user, engine-level logic (matches
+    // createIntroduction's design), so this runs with the service role, only after the
+    // ownership check above has verified who's really asking.
     const db = createAdminClient();
 
     if (action === null) {

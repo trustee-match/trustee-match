@@ -25,14 +25,13 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
-export function CharityFlow() {
+export function CharityFlow({ email }: { email: string }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [orgName, setOrgName] = useState("");
   const [contactName, setContactName] = useState("");
-  const [contactEmail, setContactEmail] = useState("");
   const [title, setTitle] = useState("");
   const [cause, setCause] = useState(CAUSES[0].id);
   const [purpose, setPurpose] = useState("");
@@ -108,7 +107,6 @@ export function CharityFlow() {
     const published = await publishRoleAndMatch({
       orgName,
       contactName,
-      contactEmail,
       title,
       cause,
       purpose,
@@ -186,18 +184,12 @@ export function CharityFlow() {
         </label>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="block space-y-1">
-          <span className="text-sm font-medium">Contact name</span>
-          <input value={contactName} onChange={(e) => setContactName(e.target.value)} className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm" placeholder="You, or a colleague handling this" />
-        </label>
-        <label className="block space-y-1">
-          <span className="text-sm font-medium">Contact email</span>
-          <input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm" placeholder="e.g. treasurer@yourcharity.gg" />
-        </label>
-      </div>
+      <label className="block max-w-sm space-y-1">
+        <span className="text-sm font-medium">Contact name</span>
+        <input value={contactName} onChange={(e) => setContactName(e.target.value)} className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm" placeholder="You, or a colleague handling this" />
+      </label>
       <p className="text-xs text-ink-muted">
-        This is who we&apos;ll reveal to a trustee once you both say yes — not shown to anyone before then.
+        Signed in as <strong>{email}</strong> — this is who we&apos;ll reveal to a trustee once you both say yes, not shown to anyone before then.
       </p>
 
       <label className="block space-y-1">

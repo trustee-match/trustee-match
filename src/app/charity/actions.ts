@@ -1,13 +1,15 @@
 "use server";
 
+import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { extractRole, type ExtractedRole } from "@/lib/ai/extract-role";
-import { findOrCreateAuthUser, upsertProfileWithoutDowngrading } from "@/lib/auth/shadow-user";
+import { upsertProfileWithoutDowngrading } from "@/lib/auth/shadow-user";
 import { CANDIDATE_SELECT, CARD_SELECT, ROLE_SELECT, toCandidate, toCard, toRole, type CandidateRow, type CardRow, type RoleRow } from "@/lib/db/mappers";
 import { clearInterest, getCandidateContact, recordInterest, type Contact } from "@/lib/jobs/interest";
 import { triggerMatch } from "@/lib/jobs/trigger";
 import { diagnoseNoMatchForRole, type NoMatchDiagnosis } from "@/lib/matching/no-match-feedback";
 import type { BoardSkillCell, Candidate, Card, Role } from "@/lib/matching/types";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 
 // AI import for the charity side, mirroring src/app/join/actions.ts's extractFromPdf/
 // Docx/Text — AGC feedback (planning/feedback/agc1.md, Wayne): "liked the button on the
@@ -59,17 +61,19 @@ export async function extractRoleFromDocx(base64: string): Promise<ExtractRoleRe
   }
 }
 
-// Internal test-harness actions for the pilot charity side, mirroring src/app/join/actions.ts.
-// Organisations need no auth user (unlike candidates) — they're a plain table, so this is
-// simpler than the candidate side. Still not real sign-in: anyone who can reach this can
-// publish a role under any organisation name. Same scope and same caveat as the candidate
-// side (see planning/responsible-design-decisions.md, Security) — fine behind the
-// site-wide preview gate, not fine for real charities.
+// Real sign-in (src/app/sign-in) replaced the admin-API shadow-contact pattern this file
+// used to rely on — see planning/responsible-design-decisions.md, Security, issues
+// #8/#12/#13. A charity contact's identity now always comes from their real signed-in
+// session, verified against org_members before any read or write below — never from a
+// client-supplied organisationId/roleId alone. createAdminClient() stays, deliberately,
+// only for genuinely privileged reads the session client structurally can't do (cross-
+// candidate reads for the suggested-trustees list — there's no RLS policy letting a
+// charity read other people's `candidates` rows directly, by design; getCandidateContact
+// needs auth.admin.* for email lookup) and for triggerMatch's engine-owned writes.
 
 export interface RoleInput {
   orgName: string;
   contactName: string;
-  contactEmail: string;
   title: string;
   cause: string;
   purpose: string;
@@ -88,31 +92,47 @@ export interface RoleInput {
 
 export type PublishResult = { ok: true; roleId: string } | { ok: false; error: string };
 
-async function findOrCreateOrg(db: ReturnType<typeof createAdminClient>, name: string): Promise<string> {
+/** Finds an existing organisation by name, or creates one — reporting which, since that
+ *  decides the membership check right after: a brand-new org has no one to protect, an
+ *  existing one does (see requireOrgMember below). */
+async function findOrCreateOrg(db: ReturnType<typeof createAdminClient>, name: string): Promise<{ organisationId: string; isNew: boolean }> {
   const trimmed = name.trim();
   const { data: existing } = await db.from("organisations").select("id").ilike("name", trimmed).maybeSingle();
-  if (existing) return existing.id;
+  if (existing) return { organisationId: existing.id, isNew: false };
   const { data: created, error } = await db.from("organisations").insert({ name: trimmed, verified: false }).select("id").single();
   if (error) throw new Error(`organisation insert failed: ${error.message}`);
-  return created.id;
+  return { organisationId: created.id, isNew: true };
 }
 
-/** Links the person publishing a role to their organisation as a real, named contact —
- *  whoever a matched candidate sees via getCharityContact (lib/jobs/interest.ts), replacing
- *  the no-contact gap that existed before any org_members row was ever created. Idempotent:
- *  re-publishing another role for the same org and email just confirms the existing link. */
-async function linkOrgContact(db: ReturnType<typeof createAdminClient>, organisationId: string, email: string, name: string): Promise<void> {
-  const userId = await findOrCreateAuthUser(db, email, name);
-  await upsertProfileWithoutDowngrading(db, userId, "board_contact", name);
+/** Links the signed-in user to an organisation as its real, named contact — whoever a
+ *  matched candidate sees via getCharityContact (lib/jobs/interest.ts). Idempotent:
+ *  publishing another role for the same org just confirms the existing link. */
+async function linkOrgContact(db: ReturnType<typeof createAdminClient>, organisationId: string, userId: string, displayName: string): Promise<void> {
+  await upsertProfileWithoutDowngrading(db, userId, "board_contact", displayName);
   const { error } = await db.from("org_members").upsert({ organisation_id: organisationId, user_id: userId }, { onConflict: "organisation_id,user_id", ignoreDuplicates: true });
   if (error) throw new Error(`org_members upsert failed: ${error.message}`);
+}
+
+/** The actual fix for issue #12's "the role/org id alone is the entire access control"
+ *  gap: verifies the signed-in session really is a recorded contact for this
+ *  organisation (org_members), the same relationship roles_member_write/update's RLS
+ *  policy already encodes — checked explicitly here because the data reads these actions
+ *  do (suggested trustees, other candidates' profiles) go through the admin client, which
+ *  bypasses RLS, so it isn't enforced automatically the way it is for the candidate side. */
+async function requireOrgMember(session: SupabaseClient, organisationId: string): Promise<{ ok: true; user: User } | { ok: false; error: string }> {
+  const {
+    data: { user },
+  } = await session.auth.getUser();
+  if (!user) return { ok: false, error: "You need to sign in first." };
+  const { data: membership } = await session.from("org_members").select("organisation_id").eq("organisation_id", organisationId).eq("user_id", user.id).maybeSingle();
+  if (!membership) return { ok: false, error: "You're not a contact for this charity." };
+  return { ok: true, user };
 }
 
 export async function publishRoleAndMatch(input: RoleInput): Promise<PublishResult> {
   try {
     if (!input.orgName.trim()) return { ok: false, error: "Enter your charity's name." };
     if (!input.contactName.trim()) return { ok: false, error: "Enter a contact name — yours or a colleague's. This is who we'll reveal to a matched candidate." };
-    if (!input.contactEmail.trim()) return { ok: false, error: "Enter a contact email." };
     if (!input.title.trim()) return { ok: false, error: "Give the role a title." };
     if (!input.purpose.trim()) return { ok: false, error: "Add a short purpose — what does your charity do?" };
     if (input.hoursPerMonth <= 0) return { ok: false, error: "Hours per month must be more than 0." };
@@ -122,16 +142,35 @@ export async function publishRoleAndMatch(input: RoleInput): Promise<PublishResu
       return { ok: false, error: "Mark at least one skill as missing or thin — a role with no stated gap can't be matched on skills." };
     }
 
+    const session = await createClient();
+    const {
+      data: { user },
+    } = await session.auth.getUser();
+    if (!user) return { ok: false, error: "You need to sign in first." };
+
     const db = createAdminClient();
-    const organisationId = await findOrCreateOrg(db, input.orgName);
-    await linkOrgContact(db, organisationId, input.contactEmail.trim(), input.contactName.trim());
+    const { organisationId, isNew } = await findOrCreateOrg(db, input.orgName);
+    if (isNew) {
+      // First publish for this org name — the signed-in user becomes its founding contact.
+      await linkOrgContact(db, organisationId, user.id, input.contactName.trim());
+    } else {
+      const { data: membership } = await session.from("org_members").select("organisation_id").eq("organisation_id", organisationId).eq("user_id", user.id).maybeSingle();
+      if (!membership) {
+        return {
+          ok: false,
+          error: `"${input.orgName.trim()}" already has a contact set up under a different sign-in. If that's you, sign in with the same email — otherwise ask them to add you, or use a different charity name.`,
+        };
+      }
+    }
 
     const boardSkills: BoardSkillCell[] = [
       ...input.missingSkills.map((skill) => ({ skill, coverage: "missing" as const })),
       ...input.thinSkills.map((skill) => ({ skill, coverage: "thin" as const })),
     ];
 
-    const { data: role, error } = await db
+    // roles_member_write/update's RLS policy is exactly "is_org_member(organisation_id)"
+    // — already verified above, so the session client (not admin) does this insert.
+    const { data: role, error } = await session
       .from("roles")
       .insert({
         organisation_id: organisationId,
@@ -179,11 +218,16 @@ export type SuggestedTrusteesResult =
 
 export async function getSuggestedTrustees(roleId: string): Promise<SuggestedTrusteesResult> {
   try {
+    const session = await createClient();
     const db = createAdminClient();
 
-    const { data: roleRow, error: roleErr } = await db.from("roles").select(ROLE_SELECT).eq("id", roleId).single();
+    const { data: roleRow, error: roleErr } = await db.from("roles").select(ROLE_SELECT).eq("id", roleId).maybeSingle();
     if (roleErr) throw new Error(roleErr.message);
+    if (!roleRow) return { ok: false, error: "Role not found." };
     const role = toRole(roleRow as unknown as RoleRow);
+
+    const membership = await requireOrgMember(session, role.organisationId);
+    if (!membership.ok) return { ok: false, error: membership.error };
 
     const { data: cardRows, error: cardsErr } = await db
       .from("cards")
@@ -241,27 +285,6 @@ export async function getSuggestedTrustees(roleId: string): Promise<SuggestedTru
   }
 }
 
-// One shared, fixed test "board contact" profile for all charity-side interest actions in
-// this preview — there's no real per-charity-rep sign-in yet (see Security entry in
-// planning/responsible-design-decisions.md), and `interests.acted_by` needs a real profile
-// id. Not who actually expressed the interest in a real sense, just a valid FK.
-async function findOrCreateCharityRep(db: ReturnType<typeof createAdminClient>): Promise<string> {
-  const EMAIL = "charity-tester@test.local";
-  const { data: created, error } = await db.auth.admin.createUser({ email: EMAIL, email_confirm: true });
-  let userId: string;
-  if (!error && created.user) {
-    userId = created.user.id;
-  } else {
-    const { data: list, error: listError } = await db.auth.admin.listUsers({ page: 1, perPage: 200 });
-    if (listError) throw new Error(listError.message);
-    const found = list.users.find((u) => u.email === EMAIL);
-    if (!found) throw new Error("Could not create or find the shared charity-tester account");
-    userId = found.id;
-  }
-  await db.from("profiles").upsert({ id: userId, kind: "board_contact", display_name: "Charity tester" });
-  return userId;
-}
-
 export type ToggleInterestResult =
   | { ok: true; interest: "interested" | "pass" | null; matched: boolean }
   | { ok: false; error: string; alreadyMatched?: boolean };
@@ -269,16 +292,24 @@ export type ToggleInterestResult =
 /** Sets, changes, or clears (pass `null`) the charity side's interest in one card. */
 export async function toggleInterest(cardId: string, roleId: string, candidateId: string, action: "interested" | "pass" | null): Promise<ToggleInterestResult> {
   try {
-    const db = createAdminClient();
+    const session = await createClient();
+    const admin = createAdminClient();
 
+    const { data: roleRow } = await session.from("roles").select("organisation_id").eq("id", roleId).maybeSingle();
+    if (!roleRow) return { ok: false, error: "Role not found." };
+    const membership = await requireOrgMember(session, roleRow.organisation_id);
+    if (!membership.ok) return { ok: false, error: membership.error };
+
+    // recordInterest/clearInterest need to read both sides' interest rows to detect a
+    // mutual match — inherently cross-user, engine-level logic — so this runs with the
+    // service role, only after the membership check above has verified who's really asking.
     if (action === null) {
-      const cleared = await clearInterest(db, cardId, "charity");
+      const cleared = await clearInterest(admin, cardId, "charity");
       if (!cleared.ok) return { ok: false, error: "Already introduced — can't withdraw interest after a mutual match.", alreadyMatched: true };
       return { ok: true, interest: null, matched: false };
     }
 
-    const actedBy = await findOrCreateCharityRep(db);
-    const result = await recordInterest(db, { cardId, roleId, candidateId, side: "charity", action, actedBy });
+    const result = await recordInterest(admin, { cardId, roleId, candidateId, side: "charity", action, actedBy: membership.user.id });
     return { ok: true, interest: result.interest, matched: result.matched };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Unknown error updating interest" };
