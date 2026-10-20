@@ -4,6 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import { SuggestedTrusteesView } from "../../suggested-trustees-view";
 
 export const metadata = { title: "Suggested trustees · Trustee Match" };
+// See the matching note in src/app/join/page.tsx — entirely session-dependent, no static
+// shell to prerender under Cache Components.
+export const instant = false;
 
 // Real ownership check (planning/responsible-design-decisions.md, Security, issue #12):
 // the role id alone is no longer sufficient access — only a signed-in contact for that

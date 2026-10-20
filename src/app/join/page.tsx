@@ -1,8 +1,15 @@
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { JoinFlow } from "./join-flow";
 
 export const metadata = { title: "Become a trustee · Trustee Match" };
+// Entirely session-dependent content — no sensible static shell to prerender under Cache
+// Components (next.config.ts). Without this, Next's prerender analysis trips on dynamic
+// reads (cookies, and transitively Date.now() inside the Supabase SDK's session checks)
+// even though they're correctly inside the Suspense boundary below — see the
+// "blocking-prerender-current-time" error this fixes.
+export const instant = false;
 
 // Real sign-in gate (issues #8/#12/#13): no session → off to /sign-in first. Session +
 // an already-confirmed profile → straight to their own matches, the "my matches"
@@ -10,7 +17,13 @@ export const metadata = { title: "Become a trustee · Trustee Match" };
 // is already that page). Session + no confirmed profile yet → the CV/LinkedIn import and
 // review flow below, same as always, just no longer asking for a name/email with no way
 // to verify either.
-export default async function JoinPage() {
+//
+// The dynamic API access (cookies, via createClient) has to happen inside this inner
+// Suspense-wrapped component, not the page's top-level export — this project runs with
+// Cache Components on (next.config.ts), which errors ("blocking-prerender-runtime" /
+// "blocking-prerender-current-time") if a dynamic read happens outside a Suspense
+// boundary. Same pattern as join/candidate/[candidateId]/page.tsx.
+async function Gate() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -21,4 +34,12 @@ export default async function JoinPage() {
   if (candidate) redirect(`/join/candidate/${user.id}`);
 
   return <JoinFlow email={user.email ?? ""} />;
+}
+
+export default function JoinPage() {
+  return (
+    <Suspense fallback={<p className="text-sm text-ink-muted">Loading…</p>}>
+      <Gate />
+    </Suspense>
+  );
 }

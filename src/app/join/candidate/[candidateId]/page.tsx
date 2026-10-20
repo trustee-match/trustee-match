@@ -4,6 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import { BoardsView } from "../../boards-view";
 
 export const metadata = { title: "Boards that need you · Trustee Match" };
+// See the matching note in src/app/join/page.tsx — entirely session-dependent, no static
+// shell to prerender under Cache Components.
+export const instant = false;
 
 // Real ownership check (planning/responsible-design-decisions.md, Security, issue #12):
 // the URL's candidateId is no longer sufficient access on its own — only the signed-in
