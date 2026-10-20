@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { RoleCard } from "@/components/cards";
 import { getMatchesForCandidate, toggleCandidateInterest, type CandidateMatch } from "./actions";
@@ -68,7 +69,12 @@ export function BoardsView() {
 
   return (
     <div className="space-y-6">
-      <h1 className="font-serif text-2xl font-semibold">Boards that need you</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="font-serif text-2xl font-semibold">Boards that need you</h1>
+        <Link href="/join?edit=1" className="text-sm text-sea underline">
+          Edit your profile
+        </Link>
+      </div>
       {matches.length === 0 ? (
         <div className="rounded-lg border border-line bg-surface p-5">
           <p className="font-medium">No matches yet</p>

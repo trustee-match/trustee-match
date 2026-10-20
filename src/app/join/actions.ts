@@ -283,3 +283,82 @@ export async function toggleCandidateInterest(cardId: string, roleId: string, ac
     return { ok: false, error: error instanceof Error ? error.message : "Unknown error updating interest" };
   }
 }
+
+/** Powers the nav link's label (src/components/nav-trustee-link.tsx) — "Become a
+ *  trustee" vs "See your matches" — without making the root layout session-dependent
+ *  (same reasoning as amIOperator(), src/components/demo-mode/actions.ts). Fails closed
+ *  to `false` (the "not signed up yet" label) on no session, same as everywhere else. */
+export async function hasConfirmedProfile(): Promise<boolean> {
+  const session = await createClient();
+  const {
+    data: { user },
+  } = await session.auth.getUser();
+  if (!user) return false;
+  const { data } = await session.from("candidates").select("id").eq("id", user.id).not("confirmed_at", "is", null).maybeSingle();
+  return Boolean(data);
+}
+
+export interface EditableProfile {
+  name: string;
+  headline: string;
+  motivation: string;
+  linkedinUrl: string;
+  causes: string[];
+  hoursPerMonth: number;
+  priorBoardExperience: boolean;
+  readGuide: boolean;
+  cvText: string;
+  skills: { skill: string; level: string; evidence: string; include: boolean }[];
+  conflictOrgNames: string[];
+}
+
+export type EditableProfileResult = { ok: true; profile: EditableProfile } | { ok: false; error: string };
+
+/** Everything join-flow.tsx's review step needs to pre-fill when someone reopens their
+ *  own already-confirmed profile to edit it (src/app/join/page.tsx's `edit=1` path) — the
+ *  same fields confirmProfileAndMatch writes, read back out. Uses the session-aware
+ *  client throughout (not the admin client): candidates_self/candidate_skills_self/
+ *  profiles_self_read RLS already scope every read here to exactly the signed-in user's
+ *  own rows, so there's nothing extra to check. */
+export async function getOwnProfileForEdit(): Promise<EditableProfileResult> {
+  const session = await createClient();
+  const {
+    data: { user },
+  } = await session.auth.getUser();
+  if (!user) return { ok: false, error: "You need to sign in first." };
+
+  const [{ data: candidateRow, error: candErr }, { data: profileRow }, { data: skillRows }] = await Promise.all([
+    session
+      .from("candidates")
+      .select("headline, motivation, linkedin_url, causes, hours_per_month, prior_board_experience, read_guide, cv_text, conflicts")
+      .eq("id", user.id)
+      .maybeSingle(),
+    session.from("profiles").select("display_name").eq("id", user.id).maybeSingle(),
+    session.from("candidate_skills").select("skill, level, evidence").eq("candidate_id", user.id),
+  ]);
+  if (candErr) return { ok: false, error: candErr.message };
+  if (!candidateRow) return { ok: false, error: "No profile to edit yet." };
+
+  let conflictOrgNames: string[] = [];
+  if (candidateRow.conflicts && candidateRow.conflicts.length > 0) {
+    const { data: orgs } = await session.from("organisations").select("name").in("id", candidateRow.conflicts);
+    conflictOrgNames = (orgs ?? []).map((o) => o.name);
+  }
+
+  return {
+    ok: true,
+    profile: {
+      name: profileRow?.display_name ?? "",
+      headline: candidateRow.headline ?? "",
+      motivation: candidateRow.motivation ?? "",
+      linkedinUrl: candidateRow.linkedin_url ?? "",
+      causes: candidateRow.causes ?? [],
+      hoursPerMonth: candidateRow.hours_per_month ?? 5,
+      priorBoardExperience: candidateRow.prior_board_experience ?? false,
+      readGuide: candidateRow.read_guide ?? false,
+      cvText: candidateRow.cv_text ?? "",
+      skills: (skillRows ?? []).map((s) => ({ ...s, include: true })),
+      conflictOrgNames,
+    },
+  };
+}

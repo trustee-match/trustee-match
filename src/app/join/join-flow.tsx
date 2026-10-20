@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { CAUSES } from "@/lib/config";
-import { confirmProfileAndMatch, extractFromDocx, extractFromPdf, extractFromText, type ConfirmInput } from "./actions";
+import { confirmProfileAndMatch, extractFromDocx, extractFromPdf, extractFromText, type ConfirmInput, type EditableProfile } from "./actions";
 
 const DOCX_ACCEPT = ".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
@@ -30,25 +30,36 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
-export function JoinFlow({ email }: { email: string }) {
+export function JoinFlow({ email, initialProfile }: { email: string; initialProfile?: EditableProfile }) {
   const router = useRouter();
-  const [step, setStep] = useState<Step>({ kind: "intro" });
-  const [name, setName] = useState("");
-  const [cvText, setCvText] = useState("");
+  const isEditing = Boolean(initialProfile);
+  const [step, setStep] = useState<Step>(
+    initialProfile
+      ? {
+          kind: "review",
+          headline: initialProfile.headline,
+          skills: initialProfile.skills,
+          suggestedCauses: initialProfile.causes,
+          priorBoardExperience: initialProfile.priorBoardExperience,
+        }
+      : { kind: "intro" },
+  );
+  const [name, setName] = useState(initialProfile?.name ?? "");
+  const [cvText, setCvText] = useState(initialProfile?.cvText ?? "");
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Review-step fields not carried in `step` state directly, since they're edited in place.
-  const [causes, setCauses] = useState<string[]>([]);
-  const [hoursPerMonth, setHoursPerMonth] = useState(5);
-  const [priorBoardExperience, setPriorBoardExperience] = useState(false);
-  const [readGuide, setReadGuide] = useState(false);
-  const [conflictText, setConflictText] = useState("");
-  const [headline, setHeadline] = useState("");
-  const [skills, setSkills] = useState<(ExtractedSkill & { include: boolean })[]>([]);
-  const [linkedinUrl, setLinkedinUrl] = useState("");
-  const [motivation, setMotivation] = useState("");
+  const [causes, setCauses] = useState<string[]>(initialProfile?.causes ?? []);
+  const [hoursPerMonth, setHoursPerMonth] = useState(initialProfile?.hoursPerMonth ?? 5);
+  const [priorBoardExperience, setPriorBoardExperience] = useState(initialProfile?.priorBoardExperience ?? false);
+  const [readGuide, setReadGuide] = useState(initialProfile?.readGuide ?? false);
+  const [conflictText, setConflictText] = useState(initialProfile?.conflictOrgNames.join(", ") ?? "");
+  const [headline, setHeadline] = useState(initialProfile?.headline ?? "");
+  const [skills, setSkills] = useState<(ExtractedSkill & { include: boolean })[]>(initialProfile?.skills ?? []);
+  const [linkedinUrl, setLinkedinUrl] = useState(initialProfile?.linkedinUrl ?? "");
+  const [motivation, setMotivation] = useState(initialProfile?.motivation ?? "");
 
   // The stale-state bug this used to guard against (planning/testing-log.md) can't
   // recur now: confirming navigates to a different route (/join/candidate/[id]) rather
@@ -134,8 +145,10 @@ export function JoinFlow({ email }: { email: string }) {
       // controlled" warning (the field changes but the DOM node's prior value doesn't
       // reset the way a fresh mount would).
       <div key="review" className="max-w-2xl space-y-6">
-        <h1 className="font-serif text-2xl font-semibold">Check what we found</h1>
-        <p className="text-sm text-ink-muted">Nothing is saved yet. Review and adjust before confirming.</p>
+        <h1 className="font-serif text-2xl font-semibold">{isEditing ? "Edit your profile" : "Check what we found"}</h1>
+        <p className="text-sm text-ink-muted">
+          {isEditing ? "Changes aren't saved until you confirm below." : "Nothing is saved yet. Review and adjust before confirming."}
+        </p>
 
         <label className="block space-y-1">
           <span className="text-sm font-medium">Headline</span>
@@ -252,11 +265,16 @@ export function JoinFlow({ email }: { email: string }) {
             disabled={loading}
             className="rounded-md bg-sea px-5 py-2.5 font-medium text-white disabled:opacity-50 dark:text-bg"
           >
-            {loading ? "Finding matches…" : "Confirm and find matches"}
+            {loading ? "Saving…" : isEditing ? "Save changes" : "Confirm and find matches"}
           </button>
           <button type="button" onClick={() => setStep({ kind: "intro" })} className="rounded-md border border-line px-4 py-2 text-sm">
-            Back
+            {isEditing ? "Start over from a new CV" : "Back"}
           </button>
+          {isEditing && (
+            <button type="button" onClick={() => router.push("/join")} className="rounded-md border border-line px-4 py-2 text-sm">
+              Cancel
+            </button>
+          )}
         </div>
       </div>
     );
@@ -264,10 +282,11 @@ export function JoinFlow({ email }: { email: string }) {
 
   return (
     <div key="intro" className="max-w-2xl space-y-6">
-      <h1 className="font-serif text-3xl font-semibold">Become a trustee</h1>
+      <h1 className="font-serif text-3xl font-semibold">{isEditing ? "Update your CV" : "Become a trustee"}</h1>
       <p className="text-ink-muted">
-        Tell us your name and upload your CV — we&apos;ll show you the boards that could use exactly what
-        you&apos;ve got.
+        {isEditing
+          ? "Upload a new CV to refresh your profile — we'll re-extract your skills and causes from it."
+          : "Tell us your name and upload your CV — we'll show you the boards that could use exactly what you've got."}
       </p>
 
       <label className="block max-w-sm space-y-1">
