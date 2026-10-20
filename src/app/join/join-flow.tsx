@@ -35,7 +35,6 @@ export function JoinFlow({ email }: { email: string }) {
   const [step, setStep] = useState<Step>({ kind: "intro" });
   const [name, setName] = useState("");
   const [cvText, setCvText] = useState("");
-  const [linkedinFile, setLinkedinFile] = useState<File | null>(null);
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,22 +61,22 @@ export function JoinFlow({ email }: { email: string }) {
       setError("Enter your name first.");
       return;
     }
-    const file = linkedinFile ?? cvFile;
-    if (!file && !cvText.trim()) {
-      setError("Upload a LinkedIn PDF, a CV (PDF or Word), or paste your CV or a personal statement.");
+    if (!cvFile && !cvText.trim()) {
+      setError("Upload a CV, or paste your CV or a personal statement.");
       return;
     }
     setLoading(true);
-    // A file (LinkedIn's own "Save to PDF" export, or a CV as PDF/.docx) takes priority
-    // over pasted text if both are present — docs/matching-design.md §3.2's "Import your
-    // LinkedIn profile" path. .docx has no native Claude document block (PDF-only), so
-    // it's routed to extractFromDocx, which converts to text locally first
-    // (extract-profile.ts) before sending it the same way as pasted text.
-    const result = !file
+    // A file takes priority over pasted text if both are present. A LinkedIn "Save to
+    // PDF" export is just another CV in PDF form by this point — same extraction, same
+    // schema (extract-profile.ts already pulls linkedin_url out of whatever document it's
+    // given) — so there's nothing LinkedIn-specific to branch on here. .docx has no
+    // native Claude document block (PDF-only), so it's routed to extractFromDocx, which
+    // converts to text locally first before sending it the same way as pasted text.
+    const result = !cvFile
       ? await extractFromText(cvText)
-      : file.name.toLowerCase().endsWith(".docx")
-        ? await extractFromDocx(await fileToBase64(file))
-        : await extractFromPdf(await fileToBase64(file));
+      : cvFile.name.toLowerCase().endsWith(".docx")
+        ? await extractFromDocx(await fileToBase64(cvFile))
+        : await extractFromPdf(await fileToBase64(cvFile));
     setLoading(false);
     if (!result.ok) {
       setError(result.error);
@@ -256,13 +255,11 @@ export function JoinFlow({ email }: { email: string }) {
     );
   }
 
-  const linkedinChosen = Boolean(linkedinFile);
-
   return (
     <div className="max-w-2xl space-y-6">
       <h1 className="font-serif text-3xl font-semibold">Become a trustee</h1>
       <p className="text-ink-muted">
-        Tell us your name, then apply with LinkedIn — we&apos;ll show you the boards that could use exactly what
+        Tell us your name and upload your CV — we&apos;ll show you the boards that could use exactly what
         you&apos;ve got.
       </p>
 
@@ -279,61 +276,33 @@ export function JoinFlow({ email }: { email: string }) {
         Signed in as <strong>{email}</strong>.
       </p>
 
-      {/* Branded as the primary path per the user's steer (2026-10-19): this is still just a
-          PDF upload under the hood (see fileToBase64 above) — no OIDC, no LinkedIn account
-          connection. docs/matching-design.md §3.2's actual "Continue with LinkedIn" sign-in
-          is still out of scope (needs a LinkedIn Developer App Jon would have to create, and
-          wouldn't return work-history data even if built — LinkedIn's API doesn't expose it). */}
-      <div className="rounded-lg border-2 border-[#0A66C2] bg-[#0A66C2]/5 p-5">
-        <p className="text-sm font-semibold text-[#0A66C2]">Apply with LinkedIn</p>
-        <p className="mt-1 text-sm text-ink-muted">
-          On LinkedIn: open your profile → the &ldquo;More&rdquo; button → <strong>Save to PDF</strong>. Upload
-          that file here. We never fetch anything from linkedin.com ourselves — only the file you export and
-          upload yourself.
-        </p>
-        <label className="mt-3 block">
-          <span className="sr-only">LinkedIn profile PDF</span>
-          <input
-            type="file"
-            accept="application/pdf"
-            onChange={(e) => setLinkedinFile(e.target.files?.[0] ?? null)}
-            className="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-[#0A66C2] file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white"
-          />
-        </label>
-        {linkedinFile && <p className="mt-2 text-xs text-[#0A66C2]">Selected: {linkedinFile.name}</p>}
-      </div>
+      <label className="block space-y-1">
+        <span className="text-sm font-medium">CV (PDF or Word)</span>
+        <input
+          type="file"
+          accept={`application/pdf,${DOCX_ACCEPT}`}
+          onChange={(e) => setCvFile(e.target.files?.[0] ?? null)}
+          className="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-sea file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white dark:file:text-bg"
+        />
+        {cvFile && <span className="block text-xs text-ink-muted">Selected: {cvFile.name}</span>}
+      </label>
+      <p className="text-xs text-ink-muted">
+        On LinkedIn? Generate a CV from your profile: open your profile → the &ldquo;More&rdquo; button →{" "}
+        <strong>Save to PDF</strong> — then upload that file above. We never fetch anything from linkedin.com
+        ourselves, only the file you export yourself.
+      </p>
 
-      <details className="rounded-lg border border-line p-4" open={!linkedinChosen && (Boolean(cvFile) || cvText.trim().length > 0)}>
-        <summary className="cursor-pointer text-sm font-medium text-ink-muted">
-          Don&apos;t have a LinkedIn profile? Upload a CV or paste text instead
-        </summary>
-        <div className="mt-3 space-y-3">
-          <label className="block space-y-1">
-            <span className="text-sm font-medium">CV (PDF or Word)</span>
-            <input
-              type="file"
-              accept={`application/pdf,${DOCX_ACCEPT}`}
-              onChange={(e) => setCvFile(e.target.files?.[0] ?? null)}
-              disabled={linkedinChosen}
-              className="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-sea file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white disabled:opacity-50 dark:file:text-bg"
-            />
-            {cvFile && <span className="block text-xs text-ink-muted">Selected: {cvFile.name}</span>}
-          </label>
-          <label className="block space-y-1">
-            <span className="text-sm font-medium">Or paste a CV or personal statement</span>
-            <textarea
-              value={cvText}
-              onChange={(e) => setCvText(e.target.value)}
-              rows={8}
-              disabled={linkedinChosen}
-              className="w-full rounded-md border border-line bg-surface px-3 py-2 font-mono text-xs disabled:opacity-50"
-              placeholder="Paste CV text here"
-            />
-          </label>
-          {linkedinChosen && (
-            <p className="text-xs text-ink-muted">Clear the LinkedIn PDF above to use a CV instead.</p>
-          )}
-        </div>
+      <details className="rounded-lg border border-line p-4" open={!cvFile && cvText.trim().length > 0}>
+        <summary className="cursor-pointer text-sm font-medium text-ink-muted">No file to hand? Paste text instead</summary>
+        <textarea
+          value={cvText}
+          onChange={(e) => setCvText(e.target.value)}
+          rows={8}
+          disabled={Boolean(cvFile)}
+          className="mt-3 w-full rounded-md border border-line bg-surface px-3 py-2 font-mono text-xs disabled:opacity-50"
+          placeholder="Paste your CV or a personal statement here"
+        />
+        {cvFile && <p className="mt-2 text-xs text-ink-muted">Clear the file above to paste text instead.</p>}
       </details>
 
       {error && <p className="rounded-md bg-missing-soft p-3 text-sm text-missing">{error}</p>}
@@ -342,9 +311,9 @@ export function JoinFlow({ email }: { email: string }) {
         type="button"
         onClick={handleExtract}
         disabled={loading}
-        className={`rounded-md px-5 py-2.5 font-medium text-white disabled:opacity-50 ${linkedinChosen ? "bg-[#0A66C2]" : "bg-sea dark:text-bg"}`}
+        className="rounded-md bg-sea px-5 py-2.5 font-medium text-white disabled:opacity-50 dark:text-bg"
       >
-        {loading ? "Reading…" : linkedinChosen ? "Continue with LinkedIn" : "Extract profile"}
+        {loading ? "Reading…" : "Extract profile"}
       </button>
     </div>
   );
