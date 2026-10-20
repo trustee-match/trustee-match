@@ -1,11 +1,19 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-// Shared by the candidate side (src/app/join) and the charity side (src/app/charity):
-// both find-or-create a "shadow" Supabase auth user by email via the admin API, with no
-// real sign-in step (magic link / LinkedIn) built yet — see the Security entry on
-// confirmProfileAndMatch in planning/responsible-design-decisions.md for why that's a
-// release blocker, not a real auth flow.
+// Two real callers now, both legitimate for the same underlying reason — creating the
+// account grants nobody any access on its own, it's just a row that becomes real identity
+// only once that email's owner actually proves it via a genuine magic-link sign-in:
+//  - src/lib/jobs/reset.ts — seeds the 14 candidate personas and 8 pilot org contacts
+//    deterministically (a reset shouldn't require 22 real inboxes to click magic links).
+//    Fine precisely because nothing in Local/Demo is a real person
+//    (planning/demo-scaffolding.md).
+//  - src/app/operator/actions.ts's promoteToOperator — pre-seeding a real operator by
+//    email before they've signed in yet (Jon, 2026-10-20). Fine for the same reason
+//    seeding is: this creates a dormant account, not access.
+// The real /join and /charity flows stopped using this once real sign-in (src/app/sign-in)
+// landed — see planning/responsible-design-decisions.md, Security, issues #8/#12/#13.
+// Never acceptable as a stand-in for granting someone access directly.
 
 /** Finds or creates an auth user for `email`, independent of what kind of profile (if
  *  any) it ends up attached to. */

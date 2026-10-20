@@ -23,7 +23,7 @@ export default function Home() {
         </p>
         <div className="flex flex-wrap gap-3">
           <Link href="/join" className="rounded-md bg-sea px-5 py-3 font-medium text-white dark:text-bg">
-            Apply with LinkedIn
+            Upload your CV
           </Link>
           <Link href="/charity" className="rounded-md border border-line bg-surface px-5 py-3 font-medium">
             I chair a charity board

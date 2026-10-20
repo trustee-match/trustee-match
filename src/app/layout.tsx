@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Inter, Source_Serif_4 } from "next/font/google";
 import { DemoModeWidget } from "@/components/demo-mode/demo-mode-widget";
+import { TrusteeNavLink } from "@/components/nav-trustee-link";
 import "./globals.css";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
@@ -22,7 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               Trustee Match
             </Link>
             <div className="flex gap-4 text-sm text-ink-muted">
-              <Link href="/join" className="hover:text-ink">Become a trustee</Link>
+              <TrusteeNavLink />
               <Link href="/charity" className="hover:text-ink">For charities</Link>
             </div>
           </nav>
