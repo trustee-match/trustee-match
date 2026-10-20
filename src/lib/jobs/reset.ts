@@ -18,10 +18,16 @@ import { triggerMatch } from "./trigger";
 //    See planning/responsible-design-decisions.md, Security, for why that's an
 //    acceptable relaxation for Demo specifically.
 //
-// Destructive: every auth user and organisation in the project is deleted, which is safe
-// only because nothing in either the Local or Demo project is real production data (see
-// planning/demo-scaffolding.md). This must never run against a real multi-tenant
-// deployment.
+// Destructive: every auth user and organisation in the project is deleted — except
+// operator accounts (profiles.kind = 'operator'), preserved deliberately (2026-10-20,
+// Jon asked directly whether a reset would wipe operator access — it did, until this
+// fix). Without this, a reset deletes the operator's own auth.users row, which cascades
+// to their profiles row (where operator status lives) and anything else of theirs
+// (candidates, org_members, …) — leaving no operator at all, since promoteToOperator
+// (src/app/operator/actions.ts) itself requires an existing operator to run. Safe to run
+// otherwise only because nothing else in either the Local or Demo project is real
+// production data (see planning/demo-scaffolding.md). This must never run against a real
+// multi-tenant deployment.
 
 export interface ResetSummary {
   usersDeleted: number;
@@ -53,12 +59,20 @@ export async function runFullReset(): Promise<ResetSummary> {
     else summary.orgsDeleted = orgs.length;
   }
 
-  const { data: userList, error: listErr } = await db.auth.admin.listUsers({ page: 1, perPage: 200 });
+  const [{ data: userList, error: listErr }, { data: operatorProfiles, error: operatorErr }] = await Promise.all([
+    db.auth.admin.listUsers({ page: 1, perPage: 200 }),
+    db.from("profiles").select("id").eq("kind", "operator"),
+  ]);
   if (listErr) {
     summary.errors.push(`listUsers failed: ${listErr.message}`);
     return summary;
   }
-  let toDelete = userList.users;
+  if (operatorErr) {
+    summary.errors.push(`operator lookup failed: ${operatorErr.message}`);
+    return summary;
+  }
+  const operatorIds = new Set((operatorProfiles ?? []).map((p) => p.id));
+  let toDelete = userList.users.filter((u) => !operatorIds.has(u.id));
   for (let attempt = 1; attempt <= 2 && toDelete.length > 0; attempt++) {
     const stillFailed: typeof toDelete = [];
     for (const u of toDelete) {
