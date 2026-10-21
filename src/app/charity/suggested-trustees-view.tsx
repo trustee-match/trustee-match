@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { CandidateCard, SkillsGrid } from "@/components/cards";
 import { causeLabel } from "@/lib/config";
@@ -78,7 +79,14 @@ export function SuggestedTrusteesView({ roleId, impersonating = false }: { roleI
         </div>
       )}
       <header className="space-y-2">
-        <h1 className="font-serif text-2xl font-semibold">{role.title}</h1>
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="font-serif text-2xl font-semibold">{role.title}</h1>
+          {!impersonating && (
+            <Link href={`/charity?edit=1&role=${role.id}`} className="shrink-0 text-sm text-sea underline">
+              Edit this role
+            </Link>
+          )}
+        </div>
         <p className="text-sm text-ink-muted">
           {role.organisationName} · {causeLabel(role.cause)} · about {role.hoursPerMonth} hrs/month · {role.meetingPattern}
         </p>

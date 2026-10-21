@@ -326,3 +326,100 @@ export async function toggleInterest(cardId: string, roleId: string, candidateId
     return { ok: false, error: error instanceof Error ? error.message : "Unknown error updating interest" };
   }
 }
+
+export type RoleEditInput = Omit<RoleInput, "orgName" | "contactName">;
+
+export interface EditableRole extends RoleEditInput {
+  orgName: string;
+}
+
+export type EditableRoleResult = { ok: true; role: EditableRole } | { ok: false; error: string };
+
+/** Everything charity-flow.tsx's form needs to pre-fill when a contact (or operator —
+ *  requireOrgMember covers both) reopens an existing role to edit it
+ *  (src/app/charity/page.tsx's `edit=1&role=` path) — the same fields
+ *  publishRoleAndMatch/updateRoleAndMatch write, read back out. `orgName` is included for
+ *  display only; editing never changes which organisation a role belongs to (see
+ *  updateRoleAndMatch). */
+export async function getOwnRoleForEdit(roleId: string): Promise<EditableRoleResult> {
+  const session = await createClient();
+  const { data: roleRow, error } = await session.from("roles").select(`${ROLE_SELECT}, purpose`).eq("id", roleId).maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!roleRow) return { ok: false, error: "Role not found." };
+  const role = toRole(roleRow as unknown as RoleRow);
+
+  const membership = await requireOrgMember(session, role.organisationId);
+  if (!membership.ok) return { ok: false, error: membership.error };
+
+  return {
+    ok: true,
+    role: {
+      orgName: role.organisationName,
+      title: role.title,
+      cause: role.cause,
+      purpose: (roleRow as unknown as { purpose: string | null }).purpose ?? "",
+      hoursPerMonth: role.hoursPerMonth,
+      meetingPattern: role.meetingPattern,
+      induction: role.induction,
+      mustHaveSkills: role.mustHaveSkills,
+      missingSkills: role.boardSkills.filter((c) => c.coverage === "missing").map((c) => c.skill),
+      thinSkills: role.boardSkills.filter((c) => c.coverage === "thin").map((c) => c.skill),
+      diversityPreference: role.diversityPreference,
+      volunteerGgUrl: role.volunteerGgUrl,
+    },
+  };
+}
+
+/** Edits an existing role in place — unlike publishRoleAndMatch, never touches
+ *  organisation/contact resolution (a role doesn't change which charity it belongs to by
+ *  being edited); requireOrgMember is the only authorization check needed. Always writes
+ *  via the admin client, after that check — mirrors the "verify via session, write via
+ *  admin" pattern used throughout this file (toggleInterest, getSuggestedTrustees),
+ *  rather than relying on roles_member_update's RLS policy, since that policy has no
+ *  operator-bypass clause and this needs to work for both a real member and an operator. */
+export async function updateRoleAndMatch(roleId: string, input: RoleEditInput): Promise<PublishResult> {
+  try {
+    if (!input.title.trim()) return { ok: false, error: "Give the role a title." };
+    if (!input.purpose.trim()) return { ok: false, error: "Add a short purpose — what does your charity do?" };
+    if (input.hoursPerMonth <= 0) return { ok: false, error: "Hours per month must be more than 0." };
+    if (!input.meetingPattern.trim()) return { ok: false, error: "Describe the meeting pattern." };
+    if (!input.induction.trim()) return { ok: false, error: "Describe the induction you'll offer." };
+    if (input.missingSkills.length === 0 && input.thinSkills.length === 0) {
+      return { ok: false, error: "Mark at least one skill as missing or thin — a role with no stated gap can't be matched on skills." };
+    }
+
+    const session = await createClient();
+    const { data: roleRow } = await session.from("roles").select("organisation_id").eq("id", roleId).maybeSingle();
+    if (!roleRow) return { ok: false, error: "Role not found." };
+    const membership = await requireOrgMember(session, roleRow.organisation_id);
+    if (!membership.ok) return { ok: false, error: membership.error };
+
+    const boardSkills: BoardSkillCell[] = [
+      ...input.missingSkills.map((skill) => ({ skill, coverage: "missing" as const })),
+      ...input.thinSkills.map((skill) => ({ skill, coverage: "thin" as const })),
+    ];
+
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from("roles")
+      .update({
+        title: input.title,
+        cause: input.cause,
+        purpose: input.purpose,
+        hours_per_month: input.hoursPerMonth,
+        meeting_pattern: input.meetingPattern,
+        induction: input.induction,
+        board_skills: boardSkills,
+        must_have_skills: input.mustHaveSkills,
+        diversity_preference: input.diversityPreference,
+        volunteer_gg_url: input.volunteerGgUrl,
+      })
+      .eq("id", roleId);
+    if (error) throw new Error(`role update failed: ${error.message}`);
+
+    await triggerMatch({ type: "role", id: roleId }, "edit");
+    return { ok: true, roleId };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Unknown error updating role" };
+  }
+}

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
+import { getOwnRoleForEdit } from "./actions";
 import { CharityFlow } from "./charity-flow";
 
 export const metadata = { title: "For charities · Trustee Match" };
@@ -12,20 +13,30 @@ export const instant = false;
 
 // Real sign-in gate (issues #8/#12/#13), mirroring src/app/join/page.tsx. A contact who
 // already has published roles sees them listed — the "my roles" dashboard the design
-// notes called for — rather than assuming there's only ever one.
+// notes called for — rather than assuming there's only ever one. `?edit=1&role=<id>` (the
+// "Edit this role" link on /charity/role/[id]) reopens that role in CharityFlow, pre-filled
+// via getOwnRoleForEdit, instead of either auto-redirecting or showing a blank publish form.
 //
 // Dynamic API access (cookies, via createClient) has to happen inside this inner
 // Suspense-wrapped component, not the page's top-level export — see the matching note in
 // src/app/join/page.tsx for why (Cache Components).
-async function Gate() {
+async function Gate({ searchParams }: { searchParams: Promise<{ edit?: string; role?: string }> }) {
   // See the matching note in join/candidate/[candidateId]/page.tsx — instant=false alone
   // didn't stop the Date.now() prerender error; connection() does.
   await connection();
+  const { edit, role: editRoleId } = await searchParams;
+
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/sign-in?next=/charity");
+  if (!user) redirect(`/sign-in?next=${encodeURIComponent(edit === "1" && editRoleId ? `/charity?edit=1&role=${editRoleId}` : "/charity")}`);
+
+  if (edit === "1" && editRoleId) {
+    const result = await getOwnRoleForEdit(editRoleId);
+    if (result.ok) return <CharityFlow email={user.email ?? ""} editing={{ roleId: editRoleId, role: result.role }} />;
+    // Fell through (not actually theirs, or role gone) — fall back to the normal gate below.
+  }
 
   const { data: memberships } = await supabase.from("org_members").select("organisation_id").eq("user_id", user.id);
   const orgIds = (memberships ?? []).map((m) => m.organisation_id);
@@ -65,10 +76,10 @@ async function Gate() {
   return <CharityFlow email={user.email ?? ""} />;
 }
 
-export default function CharityPage() {
+export default function CharityPage({ searchParams }: { searchParams: Promise<{ edit?: string; role?: string }> }) {
   return (
     <Suspense fallback={<p className="text-sm text-ink-muted">Loading…</p>}>
-      <Gate />
+      <Gate searchParams={searchParams} />
     </Suspense>
   );
 }

@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { CAUSES, SKILLS } from "@/lib/config";
-import { extractRoleFromDocx, extractRoleFromPdf, extractRoleFromText, publishRoleAndMatch } from "./actions";
+import { extractRoleFromDocx, extractRoleFromPdf, extractRoleFromText, publishRoleAndMatch, updateRoleAndMatch, type EditableRole } from "./actions";
 
 type Gap = "missing" | "thin" | null;
 
@@ -25,24 +25,31 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
-export function CharityFlow({ email }: { email: string }) {
+export function CharityFlow({ email, editing }: { email: string; editing?: { roleId: string; role: EditableRole } }) {
   const router = useRouter();
+  const isEditing = Boolean(editing);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [orgName, setOrgName] = useState("");
+  const [orgName, setOrgName] = useState(editing?.role.orgName ?? "");
   const [contactName, setContactName] = useState("");
-  const [title, setTitle] = useState("");
-  const [cause, setCause] = useState(CAUSES[0].id);
-  const [purpose, setPurpose] = useState("");
-  const [hoursPerMonth, setHoursPerMonth] = useState(5);
-  const [meetingPattern, setMeetingPattern] = useState("");
-  const [induction, setInduction] = useState("");
-  const [diversityPreference, setDiversityPreference] = useState<string | null>(null);
-  const [volunteerGgUrl, setVolunteerGgUrl] = useState("");
-  const [skillState, setSkillState] = useState<Record<string, { gap: Gap; mustHave: boolean }>>(
-    () => Object.fromEntries(SKILLS.map((s) => [s.id, { gap: null, mustHave: false }])),
-  );
+  const [title, setTitle] = useState(editing?.role.title ?? "");
+  const [cause, setCause] = useState(editing?.role.cause ?? CAUSES[0].id);
+  const [purpose, setPurpose] = useState(editing?.role.purpose ?? "");
+  const [hoursPerMonth, setHoursPerMonth] = useState(editing?.role.hoursPerMonth ?? 5);
+  const [meetingPattern, setMeetingPattern] = useState(editing?.role.meetingPattern ?? "");
+  const [induction, setInduction] = useState(editing?.role.induction ?? "");
+  const [diversityPreference, setDiversityPreference] = useState<string | null>(editing?.role.diversityPreference ?? null);
+  const [volunteerGgUrl, setVolunteerGgUrl] = useState(editing?.role.volunteerGgUrl ?? "");
+  const [skillState, setSkillState] = useState<Record<string, { gap: Gap; mustHave: boolean }>>(() => {
+    const base = Object.fromEntries(SKILLS.map((s) => [s.id, { gap: null as Gap, mustHave: false }]));
+    if (editing) {
+      for (const id of editing.role.mustHaveSkills) if (base[id]) base[id] = { ...base[id], mustHave: true };
+      for (const id of editing.role.thinSkills) if (base[id]) base[id] = { ...base[id], gap: "thin" };
+      for (const id of editing.role.missingSkills) if (base[id]) base[id] = { ...base[id], gap: "missing" };
+    }
+    return base;
+  });
 
   const [roleFile, setRoleFile] = useState<File | null>(null);
   const [roleText, setRoleText] = useState("");
@@ -104,9 +111,7 @@ export function CharityFlow({ email }: { email: string }) {
     const thinSkills = Object.entries(skillState).filter(([, v]) => v.gap === "thin").map(([k]) => k);
     const mustHaveSkills = Object.entries(skillState).filter(([, v]) => v.mustHave).map(([k]) => k);
 
-    const published = await publishRoleAndMatch({
-      orgName,
-      contactName,
+    const roleFields = {
       title,
       cause,
       purpose,
@@ -118,65 +123,76 @@ export function CharityFlow({ email }: { email: string }) {
       thinSkills,
       diversityPreference,
       volunteerGgUrl: volunteerGgUrl.trim() || null,
-    });
-    if (!published.ok) {
+    };
+
+    const result = editing
+      ? await updateRoleAndMatch(editing.roleId, roleFields)
+      : await publishRoleAndMatch({ orgName, contactName, ...roleFields });
+    if (!result.ok) {
       setLoading(false);
-      setError(published.error);
+      setError(result.error);
       return;
     }
-    router.push(`/charity/role/${published.roleId}`);
+    router.push(`/charity/role/${result.roleId}`);
   }
 
   return (
     <div className="max-w-2xl space-y-6">
-      <h1 className="font-serif text-3xl font-semibold">Find the trustee your board is missing</h1>
+      <h1 className="font-serif text-3xl font-semibold">{editing ? `Edit — ${editing.role.title || "this role"}` : "Find the trustee your board is missing"}</h1>
       <p className="text-ink-muted">
-        Tell us about your charity and the role, mark where your board&apos;s skills could use a hand, then
-        publish to see who we&apos;d suggest.
+        {isEditing
+          ? "Update any field, then save — the matching engine re-runs against the changes."
+          : "Tell us about your charity and the role, mark where your board's skills could use a hand, then publish to see who we'd suggest."}
       </p>
 
-      <div className="rounded-lg border border-line bg-surface p-5">
-        <p className="text-sm font-semibold">Already have a role description?</p>
-        <p className="mt-1 text-sm text-ink-muted">
-          Paste a volunteer.gg ad, a recruitment email, or upload a PDF/Word job spec — we&apos;ll draft the
-          fields below for you to check and edit before publishing. Nothing is saved until you publish.
-        </p>
-        <label className="mt-3 block">
-          <span className="text-sm font-medium">Upload (PDF or Word)</span>
-          <input
-            type="file"
-            accept={`application/pdf,${DOCX_ACCEPT}`}
-            onChange={(e) => setRoleFile(e.target.files?.[0] ?? null)}
-            className="mt-1 block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-sea file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white dark:file:text-bg"
-          />
-          {roleFile && <span className="mt-1 block text-xs text-ink-muted">Selected: {roleFile.name}</span>}
-        </label>
-        <label className="mt-3 block space-y-1">
-          <span className="text-sm font-medium">Or paste the role description{roleFile ? " (ignored while a file is selected)" : ""}</span>
-          <textarea
-            value={roleText}
-            onChange={(e) => setRoleText(e.target.value)}
-            rows={6}
-            disabled={Boolean(roleFile)}
-            className="w-full rounded-md border border-line bg-surface px-3 py-2 font-mono text-xs disabled:opacity-50"
-            placeholder="Paste a volunteer.gg listing or any role description here"
-          />
-        </label>
-        {extractError && <p className="mt-2 rounded-md bg-missing-soft p-3 text-sm text-missing">{extractError}</p>}
-        <button
-          type="button"
-          onClick={handleExtractRole}
-          disabled={extracting}
-          className="mt-3 rounded-md bg-sea px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:text-bg"
-        >
-          {extracting ? "Reading…" : "Draft from this"}
-        </button>
-      </div>
+      {!isEditing && (
+        <div className="rounded-lg border border-line bg-surface p-5">
+          <p className="text-sm font-semibold">Already have a role description?</p>
+          <p className="mt-1 text-sm text-ink-muted">
+            Paste a volunteer.gg ad, a recruitment email, or upload a PDF/Word job spec — we&apos;ll draft the
+            fields below for you to check and edit before publishing. Nothing is saved until you publish.
+          </p>
+          <label className="mt-3 block">
+            <span className="text-sm font-medium">Upload (PDF or Word)</span>
+            <input
+              type="file"
+              accept={`application/pdf,${DOCX_ACCEPT}`}
+              onChange={(e) => setRoleFile(e.target.files?.[0] ?? null)}
+              className="mt-1 block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-sea file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white dark:file:text-bg"
+            />
+            {roleFile && <span className="mt-1 block text-xs text-ink-muted">Selected: {roleFile.name}</span>}
+          </label>
+          <label className="mt-3 block space-y-1">
+            <span className="text-sm font-medium">Or paste the role description{roleFile ? " (ignored while a file is selected)" : ""}</span>
+            <textarea
+              value={roleText}
+              onChange={(e) => setRoleText(e.target.value)}
+              rows={6}
+              disabled={Boolean(roleFile)}
+              className="w-full rounded-md border border-line bg-surface px-3 py-2 font-mono text-xs disabled:opacity-50"
+              placeholder="Paste a volunteer.gg listing or any role description here"
+            />
+          </label>
+          {extractError && <p className="mt-2 rounded-md bg-missing-soft p-3 text-sm text-missing">{extractError}</p>}
+          <button
+            type="button"
+            onClick={handleExtractRole}
+            disabled={extracting}
+            className="mt-3 rounded-md bg-sea px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:text-bg"
+          >
+            {extracting ? "Reading…" : "Draft from this"}
+          </button>
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block space-y-1">
           <span className="text-sm font-medium">Charity name</span>
-          <input value={orgName} onChange={(e) => setOrgName(e.target.value)} className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm" placeholder="e.g. Longfield Foodbank" />
+          {isEditing ? (
+            <p className="w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink-muted">{orgName}</p>
+          ) : (
+            <input value={orgName} onChange={(e) => setOrgName(e.target.value)} className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm" placeholder="e.g. Longfield Foodbank" />
+          )}
         </label>
         <label className="block space-y-1">
           <span className="text-sm font-medium">Role title</span>
@@ -184,13 +200,17 @@ export function CharityFlow({ email }: { email: string }) {
         </label>
       </div>
 
-      <label className="block max-w-sm space-y-1">
-        <span className="text-sm font-medium">Contact name</span>
-        <input value={contactName} onChange={(e) => setContactName(e.target.value)} className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm" placeholder="You, or a colleague handling this" />
-      </label>
-      <p className="text-xs text-ink-muted">
-        Signed in as <strong>{email}</strong> — this is who we&apos;ll reveal to a trustee once you both say yes, not shown to anyone before then.
-      </p>
+      {!isEditing && (
+        <>
+          <label className="block max-w-sm space-y-1">
+            <span className="text-sm font-medium">Contact name</span>
+            <input value={contactName} onChange={(e) => setContactName(e.target.value)} className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm" placeholder="You, or a colleague handling this" />
+          </label>
+          <p className="text-xs text-ink-muted">
+            Signed in as <strong>{email}</strong> — this is who we&apos;ll reveal to a trustee once you both say yes, not shown to anyone before then.
+          </p>
+        </>
+      )}
 
       <label className="block space-y-1">
         <span className="text-sm font-medium">Cause</span>
@@ -289,7 +309,7 @@ export function CharityFlow({ email }: { email: string }) {
         disabled={loading}
         className="rounded-md bg-sea px-5 py-2.5 font-medium text-white disabled:opacity-50 dark:text-bg"
       >
-        {loading ? "Publishing…" : "Publish and find trustees"}
+        {loading ? "Saving…" : isEditing ? "Save changes" : "Publish and find trustees"}
       </button>
     </div>
   );

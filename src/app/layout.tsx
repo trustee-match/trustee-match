@@ -24,7 +24,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </Link>
             <div className="flex gap-4 text-sm text-ink-muted">
               <NavAuth />
-              <Link href="/charity" className="hover:text-ink">For charities</Link>
             </div>
           </nav>
         </header>

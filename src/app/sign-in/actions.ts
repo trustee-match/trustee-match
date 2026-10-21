@@ -37,22 +37,30 @@ export interface AuthStatus {
   signedIn: boolean;
   email: string | null;
   hasConfirmedProfile: boolean;
+  hasCharityRole: boolean;
 }
 
-/** One consolidated session check for the nav (src/components/nav-auth.tsx) — label
- *  ("Become a trustee" vs "See your matches"), whether to show a sign-out control, and
- *  who it's signing out. Checked client-side on mount, same reasoning as
- *  DemoModeWidget's amIOperator(): keeps the root layout itself session-independent
- *  under Cache Components (next.config.ts) rather than making every page dynamic. */
+/** One consolidated session check for the nav (src/components/nav-auth.tsx) — both role
+ *  links' labels ("Become a trustee"/"See your matches", "For charities"/"See your
+ *  roles"), whether to show sign-in/sign-out, and who it's signing out. Checked
+ *  client-side on mount, same reasoning as DemoModeWidget's amIOperator(): keeps the root
+ *  layout itself session-independent under Cache Components (next.config.ts) rather than
+ *  making every page dynamic. `hasCharityRole` is "is a recorded org_members contact at
+ *  all", the charity-side equivalent of a candidate's `confirmed_at` — doesn't require a
+ *  published role, just having started (mirrors /charity's own Gate, which shows the
+ *  publish form again for a contact who's linked to an org but hasn't published yet). */
 export async function getAuthStatus(): Promise<AuthStatus> {
   const session = await createClient();
   const {
     data: { user },
   } = await session.auth.getUser();
-  if (!user) return { signedIn: false, email: null, hasConfirmedProfile: false };
+  if (!user) return { signedIn: false, email: null, hasConfirmedProfile: false, hasCharityRole: false };
 
-  const { data } = await session.from("candidates").select("id").eq("id", user.id).not("confirmed_at", "is", null).maybeSingle();
-  return { signedIn: true, email: user.email ?? null, hasConfirmedProfile: Boolean(data) };
+  const [{ data: candidate }, { data: orgMember }] = await Promise.all([
+    session.from("candidates").select("id").eq("id", user.id).not("confirmed_at", "is", null).maybeSingle(),
+    session.from("org_members").select("organisation_id").eq("user_id", user.id).limit(1).maybeSingle(),
+  ]);
+  return { signedIn: true, email: user.email ?? null, hasConfirmedProfile: Boolean(candidate), hasCharityRole: Boolean(orgMember) };
 }
 
 export async function signOut(): Promise<void> {

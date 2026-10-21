@@ -21,12 +21,15 @@ export default function Home() {
             Am I ready to be a trustee?
           </Link>
         </p>
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Link href="/join" className="rounded-md bg-sea px-5 py-3 font-medium text-white dark:text-bg">
             Upload your CV
           </Link>
           <Link href="/charity" className="rounded-md border border-line bg-surface px-5 py-3 font-medium">
             I chair a charity board
+          </Link>
+          <Link href="/sign-in" className="text-sm text-ink-muted underline">
+            Already have an account? Sign in
           </Link>
         </div>
       </section>
