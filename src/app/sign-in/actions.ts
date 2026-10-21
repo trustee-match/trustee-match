@@ -32,3 +32,30 @@ export async function sendSignInLink(email: string, next?: string): Promise<Send
   if (error) return { ok: false, error: error.message };
   return { ok: true };
 }
+
+export interface AuthStatus {
+  signedIn: boolean;
+  email: string | null;
+  hasConfirmedProfile: boolean;
+}
+
+/** One consolidated session check for the nav (src/components/nav-auth.tsx) — label
+ *  ("Become a trustee" vs "See your matches"), whether to show a sign-out control, and
+ *  who it's signing out. Checked client-side on mount, same reasoning as
+ *  DemoModeWidget's amIOperator(): keeps the root layout itself session-independent
+ *  under Cache Components (next.config.ts) rather than making every page dynamic. */
+export async function getAuthStatus(): Promise<AuthStatus> {
+  const session = await createClient();
+  const {
+    data: { user },
+  } = await session.auth.getUser();
+  if (!user) return { signedIn: false, email: null, hasConfirmedProfile: false };
+
+  const { data } = await session.from("candidates").select("id").eq("id", user.id).not("confirmed_at", "is", null).maybeSingle();
+  return { signedIn: true, email: user.email ?? null, hasConfirmedProfile: Boolean(data) };
+}
+
+export async function signOut(): Promise<void> {
+  const session = await createClient();
+  await session.auth.signOut();
+}

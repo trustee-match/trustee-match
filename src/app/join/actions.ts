@@ -284,20 +284,6 @@ export async function toggleCandidateInterest(cardId: string, roleId: string, ac
   }
 }
 
-/** Powers the nav link's label (src/components/nav-trustee-link.tsx) — "Become a
- *  trustee" vs "See your matches" — without making the root layout session-dependent
- *  (same reasoning as amIOperator(), src/components/demo-mode/actions.ts). Fails closed
- *  to `false` (the "not signed up yet" label) on no session, same as everywhere else. */
-export async function hasConfirmedProfile(): Promise<boolean> {
-  const session = await createClient();
-  const {
-    data: { user },
-  } = await session.auth.getUser();
-  if (!user) return false;
-  const { data } = await session.from("candidates").select("id").eq("id", user.id).not("confirmed_at", "is", null).maybeSingle();
-  return Boolean(data);
-}
-
 export interface EditableProfile {
   name: string;
   headline: string;
