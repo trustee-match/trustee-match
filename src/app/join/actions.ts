@@ -23,19 +23,19 @@ import { createClient } from "@/lib/supabase/server";
 // matched contact's real email" lookup (getCharityContact, which needs auth.admin.* —
 // unavailable to the session client).
 
-export type ExtractResult = { ok: true; profile: ExtractedProfile } | { ok: false; error: string };
+export type ExtractResult = { ok: true; profile: ExtractedProfile; rawText: string } | { ok: false; error: string };
 
 export async function extractFromText(cvText: string): Promise<ExtractResult> {
   if (!cvText.trim()) return { ok: false, error: "Paste some CV or personal-statement text first." };
-  const profile = await extractProfile({ kind: "text", text: cvText });
-  if (!profile) {
+  const result = await extractProfile({ kind: "text", text: cvText });
+  if (!result) {
     return {
       ok: false,
       error:
         "AI extraction returned nothing — most likely ANTHROPIC_API_KEY isn't set in .env.local (or the dev server hasn't been restarted since it was added), or Claude declined to process this text.",
     };
   }
-  return { ok: true, profile };
+  return { ok: true, profile: result.profile, rawText: result.rawText };
 }
 
 /** `base64` is the PDF's content with any `data:...;base64,` prefix already stripped —
@@ -45,15 +45,15 @@ export async function extractFromText(cvText: string): Promise<ExtractResult> {
  *  hand or scrapes linkedin.com — it's the candidate's own exported file. */
 export async function extractFromPdf(base64: string): Promise<ExtractResult> {
   if (!base64.trim()) return { ok: false, error: "Choose a PDF file first." };
-  const profile = await extractProfile({ kind: "pdf", base64 });
-  if (!profile) {
+  const result = await extractProfile({ kind: "pdf", base64 });
+  if (!result) {
     return {
       ok: false,
       error:
         "AI extraction returned nothing — most likely ANTHROPIC_API_KEY isn't set in .env.local (or the dev server hasn't been restarted since it was added), or Claude declined to process this file.",
     };
   }
-  return { ok: true, profile };
+  return { ok: true, profile: result.profile, rawText: result.rawText };
 }
 
 /** `base64` is a .docx file's content with any `data:...;base64,` prefix already
@@ -63,15 +63,15 @@ export async function extractFromPdf(base64: string): Promise<ExtractResult> {
 export async function extractFromDocx(base64: string): Promise<ExtractResult> {
   if (!base64.trim()) return { ok: false, error: "Choose a .docx file first." };
   try {
-    const profile = await extractProfile({ kind: "docx", base64 });
-    if (!profile) {
+    const result = await extractProfile({ kind: "docx", base64 });
+    if (!result) {
       return {
         ok: false,
         error:
           "AI extraction returned nothing — most likely ANTHROPIC_API_KEY isn't set in .env.local (or the dev server hasn't been restarted since it was added), or Claude declined to process this file.",
       };
     }
-    return { ok: true, profile };
+    return { ok: true, profile: result.profile, rawText: result.rawText };
   } catch {
     return { ok: false, error: "Couldn't read that file — make sure it's a .docx (not .doc, which isn't supported), and not password-protected." };
   }

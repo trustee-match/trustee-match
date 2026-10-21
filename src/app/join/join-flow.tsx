@@ -94,6 +94,10 @@ export function JoinFlow({ email, initialProfile }: { email: string; initialProf
       return;
     }
     const { profile } = result;
+    // File uploads don't go through the textarea, so this is the only place `cvText`
+    // gets set for that path — without it, confirmProfileAndMatch saves an empty
+    // candidates.cv_text for anyone who uploads rather than pastes (the primary path).
+    setCvText(result.rawText);
     setHeadline(profile.headline ?? "");
     setSkills(profile.skills.map((s) => ({ ...s, include: true })));
     setCauses(profile.suggested_causes);
