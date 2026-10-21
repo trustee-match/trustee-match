@@ -2,6 +2,7 @@
 
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { extractRole, type ExtractedRole } from "@/lib/ai/extract-role";
+import { isOperator } from "@/lib/auth/operator";
 import { upsertProfileWithoutDowngrading } from "@/lib/auth/shadow-user";
 import { CANDIDATE_SELECT, CARD_SELECT, ROLE_SELECT, toCandidate, toCard, toRole, type CandidateRow, type CardRow, type RoleRow } from "@/lib/db/mappers";
 import { clearInterest, getCandidateContact, recordInterest, type Contact } from "@/lib/jobs/interest";
@@ -118,15 +119,25 @@ async function linkOrgContact(db: ReturnType<typeof createAdminClient>, organisa
  *  organisation (org_members), the same relationship roles_member_write/update's RLS
  *  policy already encodes — checked explicitly here because the data reads these actions
  *  do (suggested trustees, other candidates' profiles) go through the admin client, which
- *  bypasses RLS, so it isn't enforced automatically the way it is for the candidate side. */
+ *  bypasses RLS, so it isn't enforced automatically the way it is for the candidate side.
+ *
+ *  Also the operator impersonation gate (2026-10-21, Jon: "the main thing is to control
+ *  who can access all profiles and how" — the operator-promotion gate is the real control,
+ *  not artificially restricting what an already-trusted operator can do once inside): an
+ *  operator passes this check for any organisation, same as a real member would. Every
+ *  caller below (getSuggestedTrustees, toggleInterest) already uses this function's
+ *  returned `user` as the real actor for reads and as `acted_by` for writes, so an
+ *  operator acting here is automatically attributed to the operator's own real id, never
+ *  silently recorded as if the real contact had acted — no extra plumbing needed. */
 async function requireOrgMember(session: SupabaseClient, organisationId: string): Promise<{ ok: true; user: User } | { ok: false; error: string }> {
   const {
     data: { user },
   } = await session.auth.getUser();
   if (!user) return { ok: false, error: "You need to sign in first." };
   const { data: membership } = await session.from("org_members").select("organisation_id").eq("organisation_id", organisationId).eq("user_id", user.id).maybeSingle();
-  if (!membership) return { ok: false, error: "You're not a contact for this charity." };
-  return { ok: true, user };
+  if (membership) return { ok: true, user };
+  if (await isOperator(session, user.id)) return { ok: true, user };
+  return { ok: false, error: "You're not a contact for this charity." };
 }
 
 export async function publishRoleAndMatch(input: RoleInput): Promise<PublishResult> {

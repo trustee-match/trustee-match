@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
+import { isOperator } from "@/lib/auth/operator";
 import { createClient } from "@/lib/supabase/server";
 import { BoardsView } from "../../boards-view";
 
@@ -11,7 +12,10 @@ export const instant = false;
 
 // Real ownership check (planning/responsible-design-decisions.md, Security, issue #12):
 // the URL's candidateId is no longer sufficient access on its own — only the signed-in
-// candidate it belongs to can load this page. Anyone else is sent to sign in.
+// candidate it belongs to, or a verified operator, can load this page. Anyone else is
+// sent to sign in. Operator access (2026-10-21) is the deliberate, audited replacement
+// for the old "anyone with the link" pattern this issue closed — see
+// planning/responsible-design-decisions.md.
 async function Boards({ params }: { params: Promise<{ candidateId: string }> }) {
   // `instant = false` alone didn't stop Next's Cache Components prerender-shell analysis
   // from tripping over Date.now() somewhere inside the Supabase SDK's session check
@@ -25,10 +29,13 @@ async function Boards({ params }: { params: Promise<{ candidateId: string }> }) 
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user || user.id !== candidateId) {
+  if (!user) redirect(`/sign-in?next=${encodeURIComponent(`/join/candidate/${candidateId}`)}`);
+
+  const isOwner = user.id === candidateId;
+  if (!isOwner && !(await isOperator(supabase, user.id))) {
     redirect(`/sign-in?next=${encodeURIComponent(`/join/candidate/${candidateId}`)}`);
   }
-  return <BoardsView />;
+  return <BoardsView candidateId={isOwner ? undefined : candidateId} />;
 }
 
 export default function CandidateBoardsPage({ params }: { params: Promise<{ candidateId: string }> }) {

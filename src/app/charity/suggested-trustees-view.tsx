@@ -12,8 +12,13 @@ type State =
   | { kind: "error"; message: string }
   | { kind: "loaded"; role: Role; matches: SuggestedTrustee[]; diagnosis: NoMatchDiagnosis | null };
 
-/** Shared by the post-publish results step and the shareable /charity/role/[roleId] URL. */
-export function SuggestedTrusteesView({ roleId }: { roleId: string }) {
+/** Shared by the post-publish results step and the shareable /charity/role/[roleId] URL.
+ *  `impersonating` is purely a display flag (2026-10-21 operator work) — the page already
+ *  verified the viewer is either a real org member or an operator before mounting this;
+ *  the underlying actions (getSuggestedTrustees/toggleInterest) independently re-verify
+ *  that themselves too, this just decides whether to show the "not actually a member"
+ *  banner. */
+export function SuggestedTrusteesView({ roleId, impersonating = false }: { roleId: string; impersonating?: boolean }) {
   const [state, setState] = useState<State>({ kind: "loading" });
   const [pending, setPending] = useState<string | null>(null);
   const [toggleError, setToggleError] = useState<{ cardId: string; message: string } | null>(null);
@@ -66,6 +71,12 @@ export function SuggestedTrusteesView({ roleId }: { roleId: string }) {
 
   return (
     <div className="space-y-6">
+      {impersonating && (
+        <div className="rounded-md border border-gorse bg-gorse-soft px-3 py-2 text-sm">
+          <strong>Operator view</strong> — you&apos;re seeing this charity&apos;s real suggested trustees, not your
+          own. Any action you take here is recorded against your own operator account, not theirs.
+        </div>
+      )}
       <header className="space-y-2">
         <h1 className="font-serif text-2xl font-semibold">{role.title}</h1>
         <p className="text-sm text-ink-muted">

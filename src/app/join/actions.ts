@@ -1,6 +1,8 @@
 "use server";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { extractProfile, type ExtractedProfile } from "@/lib/ai/extract-profile";
+import { isOperator } from "@/lib/auth/operator";
 import { upsertProfileWithoutDowngrading } from "@/lib/auth/shadow-user";
 import { CARD_SELECT, ROLE_SELECT, toCandidate, toCard, toRole, type CandidateRow, type CardRow, type RoleRow } from "@/lib/db/mappers";
 import { clearInterest, getCharityContact, recordInterest, type Contact } from "@/lib/jobs/interest";
@@ -176,19 +178,33 @@ export type MatchesResult =
   | { ok: true; matches: []; diagnosis: NoMatchDiagnosis }
   | { ok: false; error: string };
 
-export async function getMatchesForCandidate(): Promise<MatchesResult> {
+/** `viewCandidateId` is operator impersonation (2026-10-21, Jon: the operator-promotion
+ *  gate is the real control, not restricting what an already-trusted operator can do once
+ *  inside) — omitted or equal to the signed-in user's own id, this is a normal self-view,
+ *  RLS-scoped via the session client exactly as before. Set to someone else's id, it
+ *  requires the caller to be a verified operator, and reads through the admin client
+ *  instead (RLS has no operator-bypass policy on cards/candidates/interests, deliberately
+ *  — this is the one, explicit, audited door around that, not a general-purpose one). */
+export async function getMatchesForCandidate(viewCandidateId?: string): Promise<MatchesResult> {
   try {
-    const db = await createClient();
+    const session = await createClient();
     const {
       data: { user },
-    } = await db.auth.getUser();
+    } = await session.auth.getUser();
     if (!user) return { ok: false, error: "You need to sign in first." };
-    const candidateId = user.id;
+
+    let candidateId = user.id;
+    let db: SupabaseClient = session;
+    if (viewCandidateId && viewCandidateId !== user.id) {
+      if (!(await isOperator(session, user.id))) return { ok: false, error: "You can only view your own matches." };
+      candidateId = viewCandidateId;
+      db = createAdminClient();
+    }
     // getCharityContact needs auth.admin.getUserById (only available to the service
     // role) to reveal a matched charity contact's real email — every other read below
-    // goes through the session-aware `db` client, enforced by RLS (cards_candidate_read,
-    // candidates_self, interests_candidate), so this action can never return another
-    // candidate's data even if it were somehow called for one.
+    // goes through `db` (session-scoped RLS for a self-view, admin for a verified
+    // operator's impersonated view), so this action can never return another candidate's
+    // data for anyone else.
     const admin = createAdminClient();
 
     const { data: cardRows, error: cardsErr } = await db
@@ -248,22 +264,34 @@ export type ToggleInterestResult =
   | { ok: true; interest: "interested" | "pass" | null; matched: boolean }
   | { ok: false; error: string; alreadyMatched?: boolean };
 
-/** Sets, changes, or clears (pass `null`) the candidate side's interest in one card.
- *  Unlike the charity side, a candidate already has their own real profile id (set at
- *  confirm time to their real auth.uid()), so it acts as its own `acted_by`. */
-export async function toggleCandidateInterest(cardId: string, roleId: string, action: "interested" | "pass" | null): Promise<ToggleInterestResult> {
+/** Sets, changes, or clears (pass `null`) the candidate side's interest in one card. A
+ *  candidate acting for themself is their own `acted_by`, same as before. `actAsCandidateId`
+ *  is operator impersonation (see getMatchesForCandidate's doc comment) — when present and
+ *  not the signed-in user, requires a verified operator, and `acted_by` stays the
+ *  operator's own real id, never the impersonated candidate's, so it's never ambiguous in
+ *  the data who actually clicked the button. */
+export async function toggleCandidateInterest(cardId: string, roleId: string, action: "interested" | "pass" | null, actAsCandidateId?: string): Promise<ToggleInterestResult> {
   try {
     const session = await createClient();
     const {
       data: { user },
     } = await session.auth.getUser();
     if (!user) return { ok: false, error: "You need to sign in first." };
-    const candidateId = user.id;
 
-    // cards_candidate_read RLS already restricts this to the signed-in user's own
-    // cards — this read doubles as the ownership check before any write below.
-    const { data: card } = await session.from("cards").select("id").eq("id", cardId).eq("candidate_id", candidateId).maybeSingle();
-    if (!card) return { ok: false, error: "That card isn't yours." };
+    let candidateId = user.id;
+    let checkClient: SupabaseClient = session;
+    if (actAsCandidateId && actAsCandidateId !== user.id) {
+      if (!(await isOperator(session, user.id))) return { ok: false, error: "You can only act on your own behalf." };
+      candidateId = actAsCandidateId;
+      checkClient = createAdminClient(); // RLS can't see another candidate's card — verified operator status above stands in for it here
+    }
+    const actedBy = user.id;
+
+    // cards_candidate_read RLS already restricts a self-view to the signed-in user's own
+    // cards; for an impersonated view, this still verifies the card really belongs to the
+    // claimed target — an operator can't pass a mismatched cardId/candidateId pair.
+    const { data: card } = await checkClient.from("cards").select("id").eq("id", cardId).eq("candidate_id", candidateId).maybeSingle();
+    if (!card) return { ok: false, error: "That card isn't theirs." };
 
     // recordInterest/clearInterest need to read both sides' interest rows to detect a
     // mutual match — inherently cross-user, engine-level logic (matches
@@ -277,7 +305,7 @@ export async function toggleCandidateInterest(cardId: string, roleId: string, ac
       return { ok: true, interest: null, matched: false };
     }
 
-    const result = await recordInterest(db, { cardId, roleId, candidateId, side: "candidate", action, actedBy: candidateId });
+    const result = await recordInterest(db, { cardId, roleId, candidateId, side: "candidate", action, actedBy });
     return { ok: true, interest: result.interest, matched: result.matched };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Unknown error updating interest" };

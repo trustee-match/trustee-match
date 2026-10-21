@@ -16,10 +16,9 @@ export const instant = false;
 // A live index of every candidate and charity role currently in the database — real
 // names and emails in one aggregated list, so operator-only now (planning/
 // responsible-design-decisions.md, Security) rather than reachable by anyone behind the
-// shared demo password. "View matches" links used to go to /join/candidate/[id] and
-// /charity/role/[id] — those pages now require being signed in as that exact person
-// (issue #12), which an operator reaching this page isn't, so those links were removed
-// rather than left as a dead end; /operator's matching overview covers that need instead.
+// shared demo password. "View matches" links go to /join/candidate/[id] and
+// /charity/role/[id] — real ownership-gated pages (issue #12), but an operator now passes
+// that check too (2026-10-21), so these work again rather than dead-ending at sign-in.
 
 interface CandidateRow {
   id: string;
@@ -127,6 +126,9 @@ async function AllProfiles() {
                   {causeLabel(r.cause)} · about {r.hours_per_month} hrs/month · contact: {r.contact_name ?? "none on file"} ·{" "}
                   {r.status}
                 </p>
+                <Link href={`/charity/role/${r.id}`} className="text-sea underline">
+                  View suggested trustees
+                </Link>
               </div>
               <SubmissionModalTrigger type="role" id={r.id} label="View submission" />
             </div>
@@ -147,6 +149,9 @@ async function AllProfiles() {
                 <p className="text-ink-muted">
                   {c.headline} · {c.hours_per_month} hrs/month · {c.causes.map(causeLabel).join(", ")}
                 </p>
+                <Link href={`/join/candidate/${c.id}`} className="text-sea underline">
+                  View matches
+                </Link>
               </div>
               <SubmissionModalTrigger type="candidate" id={c.id} label="View CV" />
             </div>

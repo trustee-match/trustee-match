@@ -11,19 +11,20 @@ type State =
   | { kind: "error"; message: string }
   | { kind: "loaded"; matches: CandidateMatch[]; diagnosis: NoMatchDiagnosis | null };
 
-/** Rendered only by /join/candidate/[candidateId]/page.tsx, which has already verified
- *  the signed-in session owns this candidateId before mounting this component — the
- *  data-fetching actions below independently re-derive identity from the session too
- *  (never trust a route param for identity), so there's no candidateId prop to thread
- *  through here. */
-export function BoardsView() {
+/** Rendered by /join/candidate/[candidateId]/page.tsx, which has already verified the
+ *  viewer either owns this candidateId or is a verified operator. `candidateId` is only
+ *  passed when it's the latter (operator impersonation, 2026-10-21) — a normal self-view
+ *  passes nothing, and the data-fetching actions derive identity from the session as
+ *  before. Never trust a route param for identity on its own; the actions re-verify
+ *  operator status themselves regardless of what this component passes. */
+export function BoardsView({ candidateId }: { candidateId?: string }) {
   const [state, setState] = useState<State>({ kind: "loading" });
   const [pending, setPending] = useState<string | null>(null);
   const [toggleError, setToggleError] = useState<{ cardId: string; message: string } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    getMatchesForCandidate().then((result) => {
+    getMatchesForCandidate(candidateId).then((result) => {
       if (cancelled) return;
       if (!result.ok) {
         setState({ kind: "error", message: result.error });
@@ -34,14 +35,14 @@ export function BoardsView() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [candidateId]);
 
   async function handleToggle(match: CandidateMatch, action: "interested" | "pass") {
     if (state.kind !== "loaded") return;
     const nextAction = match.interest === action ? null : action;
     setPending(match.cardId);
     setToggleError(null);
-    const result = await toggleCandidateInterest(match.cardId, match.role.id, nextAction);
+    const result = await toggleCandidateInterest(match.cardId, match.role.id, nextAction, candidateId);
     setPending(null);
     if (!result.ok) {
       setToggleError({ cardId: match.cardId, message: result.error });
@@ -50,7 +51,7 @@ export function BoardsView() {
     if (result.matched && !match.matched) {
       // Just became a mutual match — refetch so the charity's contact details (not
       // known client-side) come through on the card rather than showing as empty.
-      const refreshed = await getMatchesForCandidate();
+      const refreshed = await getMatchesForCandidate(candidateId);
       if (refreshed.ok) {
         setState({ kind: "loaded", matches: refreshed.matches, diagnosis: "diagnosis" in refreshed ? refreshed.diagnosis : null });
         return;
@@ -66,14 +67,23 @@ export function BoardsView() {
   if (state.kind === "error") return <p className="rounded-md bg-missing-soft p-3 text-sm text-missing">{state.message}</p>;
 
   const { matches, diagnosis } = state;
+  const impersonating = Boolean(candidateId);
 
   return (
     <div className="space-y-6">
+      {impersonating && (
+        <div className="rounded-md border border-gorse bg-gorse-soft px-3 py-2 text-sm">
+          <strong>Operator view</strong> — you&apos;re seeing this candidate&apos;s real matches, not your own. Any
+          action you take here is recorded against your own operator account, not theirs.
+        </div>
+      )}
       <div className="flex items-center justify-between gap-3">
         <h1 className="font-serif text-2xl font-semibold">Boards that need you</h1>
-        <Link href="/join?edit=1" className="text-sm text-sea underline">
-          Edit your profile
-        </Link>
+        {!impersonating && (
+          <Link href="/join?edit=1" className="text-sm text-sea underline">
+            Edit your profile
+          </Link>
+        )}
       </div>
       {matches.length === 0 ? (
         <div className="rounded-lg border border-line bg-surface p-5">
