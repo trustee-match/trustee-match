@@ -262,6 +262,15 @@ export function JoinFlow({ email, initialProfile }: { email: string; initialProf
 
         {error && <p className="rounded-md bg-missing-soft p-3 text-sm text-missing">{error}</p>}
 
+        {/* Saving is the consent step the privacy notice relies on (consent_profile_processing,
+            consent_share_on_match in join/actions.ts) — keep this wording next to the button. */}
+        <p className="text-sm text-ink-muted">
+          By saving, you agree to us holding your profile and suggesting it to charities anonymously, and to your name
+          and email being shared with a charity only when you both say yes. See our{" "}
+          <Link href="/privacy" className="text-sea underline">privacy notice</Link> and{" "}
+          <Link href="/terms" className="text-sea underline">terms</Link>.
+        </p>
+
         <div className="flex gap-3">
           <button
             type="button"
