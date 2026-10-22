@@ -1,9 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useState } from "react";
+import { Suspense, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 import { sendSignInLink } from "./actions";
+
+// Cloudflare Turnstile dummy sitekey — always passes, works on any domain including
+// localhost. Real Demo/Production deploys should set NEXT_PUBLIC_TURNSTILE_SITE_KEY to
+// a real widget's sitekey (dash.cloudflare.com → Turnstile) — see planning/operations.md.
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "1x00000000000000000000AA";
 
 function SignInForm() {
   const searchParams = useSearchParams();
@@ -15,12 +21,20 @@ function SignInForm() {
     searchParams.get("error") === "link_expired" ? "That link has expired or was already used — send a new one." : null,
   );
   const [sent, setSent] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const turnstile = useRef<TurnstileInstance>(null);
 
   async function handleSubmit() {
+    if (!captchaToken) {
+      setError("Complete the verification check first.");
+      return;
+    }
     setError(null);
     setLoading(true);
-    const result = await sendSignInLink(email, next);
+    const result = await sendSignInLink(email, next, captchaToken);
     setLoading(false);
+    turnstile.current?.reset();
+    setCaptchaToken(null);
     if (!result.ok) {
       setError(result.error);
       return;
@@ -64,10 +78,11 @@ function SignInForm() {
           className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm"
           placeholder="you@example.com"
         />
+        <Turnstile ref={turnstile} siteKey={TURNSTILE_SITE_KEY} onSuccess={setCaptchaToken} onExpire={() => setCaptchaToken(null)} />
         {error && <p className="text-sm text-missing">{error}</p>}
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || !captchaToken}
           className="w-full rounded-md bg-sea px-4 py-2.5 font-medium text-white disabled:opacity-50 dark:text-bg"
         >
           {loading ? "Sending…" : "Continue"}

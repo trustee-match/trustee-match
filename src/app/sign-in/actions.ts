@@ -15,7 +15,15 @@ import { createClient } from "@/lib/supabase/server";
 
 export type SendLinkResult = { ok: true } | { ok: false; error: string };
 
-export async function sendSignInLink(email: string, next?: string): Promise<SendLinkResult> {
+// captchaToken comes from the Cloudflare Turnstile widget on /sign-in (the only place
+// signInWithOtp is called — see planning/responsible-design-decisions.md, Security).
+// Supabase verifies it server-side against Bot and Abuse Protection's configured secret
+// key before sending any mail; without that dashboard toggle enabled, Supabase currently
+// just ignores a captchaToken rather than rejecting its absence — the frontend gate
+// (button disabled until a token exists) is what actually stops a bare request today,
+// so turning on Supabase's own CAPTCHA enforcement per project is still a real step, not
+// just UI polish. See planning/operations.md.
+export async function sendSignInLink(email: string, next?: string, captchaToken?: string): Promise<SendLinkResult> {
   const trimmed = email.trim();
   if (!trimmed) return { ok: false, error: "Enter your email address." };
 
@@ -28,7 +36,7 @@ export async function sendSignInLink(email: string, next?: string): Promise<Send
   if (!origin) return { ok: false, error: "Could not determine the site address — try again, or reload the page first." };
 
   const emailRedirectTo = `${origin}/auth/callback${next ? `?next=${encodeURIComponent(next)}` : ""}`;
-  const { error } = await supabase.auth.signInWithOtp({ email: trimmed, options: { emailRedirectTo } });
+  const { error } = await supabase.auth.signInWithOtp({ email: trimmed, options: { emailRedirectTo, captchaToken } });
   if (error) return { ok: false, error: error.message };
   return { ok: true };
 }
