@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { CAUSES, SKILLS } from "@/lib/config";
@@ -302,6 +303,12 @@ export function CharityFlow({ email, editing }: { email: string; editing?: { rol
       </div>
 
       {error && <p className="rounded-md bg-missing-soft p-3 text-sm text-missing">{error}</p>}
+
+      <p className="text-sm text-ink-muted">
+        By publishing, you confirm you&apos;re authorised to act for this charity and agree to our{" "}
+        <Link href="/terms" className="text-sea underline">terms</Link>. See our{" "}
+        <Link href="/privacy" className="text-sea underline">privacy notice</Link> for how we handle your details.
+      </p>
 
       <button
         type="button"
