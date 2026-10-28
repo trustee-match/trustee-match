@@ -8,7 +8,10 @@ import { PREVIEW_COOKIE, PREVIEW_GRANTED, previewGateEnabled } from "@/lib/previ
 // checks, not here — this is only the "is this a known tester" layer for the public
 // preview deploy (see planning/responsible-design-decisions.md, Security).
 export async function proxy(request: NextRequest) {
-  if (previewGateEnabled() && request.nextUrl.pathname !== "/enter") {
+  // /about, /terms and /privacy stay readable without the password, so anyone can check
+  // how their data is handled before entering anything.
+  const ungated = ["/enter", "/about", "/terms", "/privacy"];
+  if (previewGateEnabled() && !ungated.includes(request.nextUrl.pathname)) {
     const cookie = request.cookies.get(PREVIEW_COOKIE)?.value;
     if (cookie !== PREVIEW_GRANTED) {
       return NextResponse.redirect(new URL("/enter", request.url));

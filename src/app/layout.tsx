@@ -29,7 +29,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </header>
         <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">{children}</main>
         <footer className="border-t border-line py-6 text-center text-xs text-ink-muted">
-          Source code licensed under MIT.
+          <nav className="mb-2 flex justify-center gap-4">
+            <Link href="/about" className="underline">About</Link>
+            <Link href="/terms" className="underline">Terms</Link>
+            <Link href="/privacy" className="underline">Privacy</Link>
+          </nav>
+          Run by The Quarry · Source code licensed under MIT.
         </footer>
         <DemoModeWidget />
       </body>
