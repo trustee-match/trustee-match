@@ -3,15 +3,24 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { CAUSES } from "@/lib/config";
+import { CAUSES, SKILLS } from "@/lib/config";
 import { confirmProfileAndMatch, extractFromDocx, extractFromPdf, extractFromText, type ConfirmInput, type EditableProfile } from "./actions";
 
 const DOCX_ACCEPT = ".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
 type ExtractedSkill = { skill: string; level: string; evidence: string };
 
+// Evidence for an AI-extracted skill is a real quote from the candidate's own
+// document; a manually-picked skill has no document to quote, so this fixed label is
+// used instead — honest about the difference rather than fabricating a quote (see
+// docs/matching-design.md §3.3, the "evidence or silence" principle this app is built
+// on elsewhere for AI-written match reasons).
+const SELF_REPORTED = "Self-reported";
+const SKILL_LEVELS = ["working", "professional", "senior"] as const;
+
 type Step =
   | { kind: "intro" }
+  | { kind: "manual" }
   | { kind: "review"; headline: string; skills: (ExtractedSkill & { include: boolean })[]; suggestedCauses: string[]; priorBoardExperience: boolean };
 
 /** Reads a File into a bare base64 string (no `data:...;base64,` prefix) for the PDF
@@ -137,6 +146,34 @@ export function JoinFlow({ email, initialProfile }: { email: string; initialProf
 
   function toggleSkill(i: number) {
     setSkills((prev) => prev.map((s, idx) => (idx === i ? { ...s, include: !s.include } : s)));
+  }
+
+  // Manual 6-question path (docs/matching-design.md §3.2/§3.3) — for anyone without a
+  // CV to upload or paste, and the only candidate-intake path that needs no AI at all,
+  // closing the gap §3.3 documents (AI extraction has no fallback if it fails).
+  function startManual() {
+    setError(null);
+    if (!name.trim()) {
+      setError("Enter your name first.");
+      return;
+    }
+    setStep({ kind: "manual" });
+  }
+
+  function toggleManualSkill(skillId: string) {
+    setSkills((prev) =>
+      prev.some((s) => s.skill === skillId)
+        ? prev.filter((s) => s.skill !== skillId)
+        : [...prev, { skill: skillId, level: "working", evidence: SELF_REPORTED, include: true }],
+    );
+  }
+
+  function setManualSkillLevel(skillId: string, level: string) {
+    setSkills((prev) => prev.map((s) => (s.skill === skillId ? { ...s, level } : s)));
+  }
+
+  function handleManualContinue() {
+    setStep({ kind: "review", headline, skills, suggestedCauses: causes, priorBoardExperience });
   }
 
   if (step.kind === "review") {
@@ -293,6 +330,120 @@ export function JoinFlow({ email, initialProfile }: { email: string; initialProf
     );
   }
 
+  if (step.kind === "manual") {
+    return (
+      <div key="manual" className="max-w-2xl space-y-6">
+        <h1 className="font-serif text-2xl font-semibold">A few questions instead</h1>
+        <p className="text-sm text-ink-muted">
+          No AI involved in this path — just answer directly, then review everything before it&apos;s saved.
+        </p>
+
+        <label className="block space-y-1">
+          <span className="text-sm font-medium">1. What&apos;s your professional background, in one line?</span>
+          <input
+            value={headline}
+            onChange={(e) => setHeadline(e.target.value)}
+            placeholder="e.g. Chartered accountant, fund administration"
+            className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm"
+          />
+        </label>
+
+        <div className="space-y-2">
+          <p className="text-sm font-medium">2. Which of these skills do you have?</p>
+          <ul className="space-y-2">
+            {SKILLS.map((skillDef) => {
+              const picked = skills.find((s) => s.skill === skillDef.id);
+              return (
+                <li key={skillDef.id} className="rounded-md border border-line bg-surface p-3 text-sm">
+                  <label className="flex items-start gap-2">
+                    <input type="checkbox" checked={Boolean(picked)} onChange={() => toggleManualSkill(skillDef.id)} className="mt-1" />
+                    <span>
+                      <span className="font-medium">{skillDef.label}</span>
+                      <br />
+                      <span className="text-xs text-ink-muted">{skillDef.hint}</span>
+                    </span>
+                  </label>
+                  {picked && (
+                    <div className="mt-2 flex gap-2 pl-6">
+                      {SKILL_LEVELS.map((level) => (
+                        <button
+                          type="button"
+                          key={level}
+                          onClick={() => setManualSkillLevel(skillDef.id, level)}
+                          className={`rounded-full border px-3 py-1 text-xs capitalize ${
+                            picked.level === level ? "border-sea bg-sea-soft text-sea" : "border-line text-ink-muted"
+                          }`}
+                        >
+                          {level}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-sm font-medium">3. Which causes do you care about?</p>
+          <div className="flex flex-wrap gap-2">
+            {CAUSES.map((c) => (
+              <button
+                type="button"
+                key={c.id}
+                onClick={() => toggleCause(c.id)}
+                className={`rounded-full border px-3 py-1 text-xs ${
+                  causes.includes(c.id) ? "border-sea bg-sea-soft text-sea" : "border-line text-ink-muted"
+                }`}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={priorBoardExperience} onChange={(e) => setPriorBoardExperience(e.target.checked)} />
+          4. I&apos;ve served as a trustee or board member before
+        </label>
+
+        {priorBoardExperience && (
+          <label className="block space-y-1">
+            <span className="text-sm font-medium">5. Which organisations? (for conflict-of-interest checks)</span>
+            <input
+              value={conflictText}
+              onChange={(e) => setConflictText(e.target.value)}
+              placeholder="Comma-separated organisation names"
+              className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm"
+            />
+          </label>
+        )}
+
+        <label className="block space-y-1">
+          <span className="text-sm font-medium">6. LinkedIn profile URL (optional)</span>
+          <input
+            value={linkedinUrl}
+            onChange={(e) => setLinkedinUrl(e.target.value)}
+            placeholder="https://www.linkedin.com/in/your-name"
+            className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm"
+          />
+        </label>
+
+        {error && <p className="rounded-md bg-missing-soft p-3 text-sm text-missing">{error}</p>}
+
+        <div className="flex gap-3">
+          <button type="button" onClick={handleManualContinue} className="rounded-md bg-sea px-5 py-2.5 font-medium text-white dark:text-bg">
+            Continue
+          </button>
+          <button type="button" onClick={() => setStep({ kind: "intro" })} className="rounded-md border border-line px-4 py-2 text-sm">
+            Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div key="intro" className="max-w-2xl space-y-6">
       <h1 className="font-serif text-3xl font-semibold">{isEditing ? "Update your CV" : "Become a trustee"}</h1>
@@ -343,6 +494,14 @@ export function JoinFlow({ email, initialProfile }: { email: string; initialProf
         />
         {cvFile && <p className="mt-2 text-xs text-ink-muted">Clear the file above to paste text instead.</p>}
       </details>
+
+      <p className="text-sm text-ink-muted">
+        Prefer not to upload or paste anything?{" "}
+        <button type="button" onClick={startManual} className="text-sea underline">
+          Answer 6 quick questions instead
+        </button>
+        .
+      </p>
 
       {error && <p className="rounded-md bg-missing-soft p-3 text-sm text-missing">{error}</p>}
 

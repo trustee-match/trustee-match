@@ -90,29 +90,25 @@ docstring — turned out to be wrong; see the gap at the end).
   gap-weighted score itself, and a plain-English reason template-built from the
   highest-weighted gap skill — never a blank or broken card.
 
-**Candidate CV/LinkedIn-PDF extraction — a real gap, found while writing this up:**
+**Candidate CV/LinkedIn-PDF extraction — a real gap, found on 2026-11-06, closed the same day:**
 - `extractProfile` ([`src/lib/ai/extract-profile.ts`](../src/lib/ai/extract-profile.ts))
-  follows the same pattern as ranking — `try/catch`, returns `null` on any failure —
-  and its own doc comment says *"Returns null when AI is disabled or fails; the UI
-  then falls back to the 6-question form."*
-- **That fallback doesn't exist.** The "6 questions" path described in §3.2 above was
-  part of the original plan and was never built — `/join`'s actual UI
-  ([`join-flow.tsx`](../src/app/join/join-flow.tsx)) only ever offers CV/`.docx`
-  upload or pasting text, both of which still require a successful AI call to turn
-  into a profile. When `extractProfile` returns `null`, `extractFromText`/
-  `extractFromPdf`/`extractFromDocx` ([`src/app/join/actions.ts`](../src/app/join/actions.ts))
-  return `{ ok: false, error: "AI extraction returned nothing…" }`, and the UI just
-  shows that as an error with no way to proceed. A candidate genuinely cannot create
-  a profile at all while the AI is down or over budget.
-- **Why this is worth stating plainly rather than quietly leaving the stale comment:**
-  the project's own stated principle is "evidence or silence," and claiming uniform
-  graceful degradation across the whole service would be an overclaim this specific
-  path doesn't earn yet. The matching *engine* degrades exactly as designed — intake
-  does not, today.
-- **Not yet fixed as of 2026-11-06** — either build the originally-planned manual
-  6-question form, or scope the "degrades, never stops" claim explicitly to matching
-  and ranking rather than the whole candidate journey, in any public-facing writeup
-  (including the G-Prize submission).
+  follows the same pattern as ranking — `try/catch`, returns `null` on any failure.
+  Its own doc comment used to claim *"the UI then falls back to the 6-question
+  form"* — found to be false (the form didn't exist), the comment was corrected to
+  say so plainly, and then the actual form was built a short while later the same
+  day, making the original comment's claim true after all.
+- **`/join`'s manual path now exists** ([`join-flow.tsx`](../src/app/join/join-flow.tsx)):
+  "Prefer not to upload or paste anything? Answer 6 quick questions instead,"
+  always offered alongside upload/paste, not only shown after an AI failure. It
+  needs no AI call at all — headline, a skill/level picker from the fixed taxonomy,
+  causes, prior board experience, conflict organisations, and LinkedIn URL feed
+  directly into the same review step the AI path uses, with each manually-picked
+  skill's evidence honestly labelled `"Self-reported"` rather than a fabricated
+  quote (the one place this path's evidence standard differs from an AI-extracted
+  one, and it's stated as a visible fact on the card, not hidden).
+- **Now true end to end:** matching/ranking degrades to rules-only cards, and intake
+  degrades to a no-AI manual form — a candidate can complete the whole journey with
+  zero AI availability, which is what "degrades, never stops" actually requires.
 
 ## 4. The engine
 
