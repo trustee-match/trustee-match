@@ -1,0 +1,39 @@
+name: Cron
+
+# Hits the live Demo deploy's /api/cron every 5 minutes — this is the project's only
+# timer mechanism (job retries, interest nudges/expiry, post-intro follow-ups, alert
+# dispatch; see src/app/api/cron/route.ts). Nothing in the matching lifecycle waits on
+# a person otherwise, so without this running, those timers never fire at all.
+#
+# A useful side effect: Supabase's Free plan pauses a project after a week with no
+# database activity (docs.supabase.com/guides/platform/free-project-pausing). Every
+# cron run does real reads/writes against Demo's database, which keeps it active and
+# avoids the pause — so this workflow is also what lets "the database costs nothing"
+# be a true claim rather than a time bomb.
+#
+# Runs on GitHub-hosted runners, which are free and unmetered for public repositories
+# — this project is MIT-licensed and public, so the 5-minute cadence costs nothing.
+# GitHub's own scheduler can delay a run by a few minutes under load; harmless here,
+# since every job this triggers operates on a day-scale timer (nudge on day 5, expire
+# on day 10), not a second-scale one.
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hit /api/cron on the live Demo deploy
+        run: |
+          http_code=$(curl -s -o /tmp/cron-response.json -w "%{http_code}" \
+            -X GET "https://trustee-match-demo.netlify.app/api/cron" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
+          echo "HTTP $http_code"
+          cat /tmp/cron-response.json
+          if [ "$http_code" -ge 300 ]; then
+            echo "::error::Cron endpoint returned HTTP $http_code"
+            exit 1
+          fi
