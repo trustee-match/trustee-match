@@ -1,6 +1,16 @@
 # Matching design
 *Trustee Match, v1, 8 Oct 2026. Status: agreed direction, ready to scaffold.*
 
+> **Update, 2026-11-06:** this doc is the original pre-build design and is kept as
+> written below rather than silently edited to match the final build — see each
+> section for what actually shipped differently. The two changes worth knowing up
+> front: sign-in is Supabase email magic-link, not LinkedIn OIDC (no LinkedIn
+> Developer App was created; see `src/app/sign-in/actions.ts`'s own comment), and
+> candidates authenticate before building a profile rather than via LinkedIn
+> identity. §3.9 below is new, added the same day, and documents the AI-unavailable
+> fallback behaviour precisely against the actual current code — including one real
+> gap it found, not just the parts that work as designed.
+
 > **The mechanics of a dating app, the manners of a board appointment.**
 > Instant, well-explained suggestions the moment a role or profile goes live. Both sides opt in. Identity is revealed step by step. No human gatekeeper in the loop.
 
@@ -53,6 +63,56 @@
 - **Quality gate:** the candidate confirms or edits every extracted skill. They are the reviewer of their own data. Minimum to go live: ≥1 skill at professional level or above, *or* lived experience; hours per month; ≥1 cause; consents ticked.
 - **Readiness explainer:** 5 short cards on duties, liability, time and what boards look for. It's optional for experienced trustees and nudged for first-timers.
 - **Discoverability:** *off* by default. When on, the candidate can appear anonymously in charities' suggested lists. When off, the candidate can only start contact themselves.
+
+### 3.3 What actually happens if the AI is unavailable or over budget (added 2026-11-06)
+
+§4.3 and §4.4 already describe matching's own degraded mode briefly; this section
+consolidates it, verifies it against the real code rather than the plan, and covers
+candidate/charity intake, which was never written up at all. Every claim below cites
+the actual function and file, checked directly on 2026-11-06, not inferred from this
+design doc or from code comments (one of which — `extract-profile.ts`'s own
+docstring — turned out to be wrong; see the gap at the end).
+
+**Matching and ranking — degrades correctly, confirmed in code:**
+- `rankAndExplain` ([`src/lib/ai/rank-explain.ts`](../src/lib/ai/rank-explain.ts))
+  wraps its entire Claude call in `try/catch` and returns `null` on any failure —
+  missing API key, exhausted budget, a timeout, a rate limit, or a genuine outage are
+  all indistinguishable to the caller.
+- When it returns `null`, [`matchRoleAi`](../src/lib/jobs/match.ts) takes the explicit
+  `else` branch commented `// Degraded mode: rules cards stand.` — the deterministic
+  score (§4.2, needs no AI at all) and the template-written "why" (`explain-template.ts`)
+  are what the candidate or charity sees instead. Cards still appear, alerts still
+  queue, nothing silently disappears.
+- What's lost in degraded mode specifically: Claude's holistic re-ranking (e.g.
+  judging whether a candidate's experience suits a *small* charity specifically,
+  nuance the rules score can't capture) and AI-written natural-language explanations.
+  What's kept: every match that scored well enough to show, the hard filters, the
+  gap-weighted score itself, and a plain-English reason template-built from the
+  highest-weighted gap skill — never a blank or broken card.
+
+**Candidate CV/LinkedIn-PDF extraction — a real gap, found while writing this up:**
+- `extractProfile` ([`src/lib/ai/extract-profile.ts`](../src/lib/ai/extract-profile.ts))
+  follows the same pattern as ranking — `try/catch`, returns `null` on any failure —
+  and its own doc comment says *"Returns null when AI is disabled or fails; the UI
+  then falls back to the 6-question form."*
+- **That fallback doesn't exist.** The "6 questions" path described in §3.2 above was
+  part of the original plan and was never built — `/join`'s actual UI
+  ([`join-flow.tsx`](../src/app/join/join-flow.tsx)) only ever offers CV/`.docx`
+  upload or pasting text, both of which still require a successful AI call to turn
+  into a profile. When `extractProfile` returns `null`, `extractFromText`/
+  `extractFromPdf`/`extractFromDocx` ([`src/app/join/actions.ts`](../src/app/join/actions.ts))
+  return `{ ok: false, error: "AI extraction returned nothing…" }`, and the UI just
+  shows that as an error with no way to proceed. A candidate genuinely cannot create
+  a profile at all while the AI is down or over budget.
+- **Why this is worth stating plainly rather than quietly leaving the stale comment:**
+  the project's own stated principle is "evidence or silence," and claiming uniform
+  graceful degradation across the whole service would be an overclaim this specific
+  path doesn't earn yet. The matching *engine* degrades exactly as designed — intake
+  does not, today.
+- **Not yet fixed as of 2026-11-06** — either build the originally-planned manual
+  6-question form, or scope the "degrades, never stops" claim explicitly to matching
+  and ranking rather than the whole candidate journey, in any public-facing writeup
+  (including the G-Prize submission).
 
 ## 4. The engine
 

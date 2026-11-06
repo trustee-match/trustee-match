@@ -55,7 +55,11 @@ Rules:
 
 export type ExtractedResult = { profile: ExtractedProfile; rawText: string };
 
-/** Returns null when AI is disabled or fails; the UI then falls back to the 6-question form.
+/** Returns null when AI is disabled or fails. There's currently no manual fallback —
+ *  the caller (src/app/join/actions.ts) surfaces this as an error and the candidate
+ *  cannot create a profile until AI is available again. A 6-question manual form was
+ *  planned (docs/matching-design.md §3.2) but never built; see §3.3 for why this is a
+ *  real, documented gap rather than a silently-wrong comment left in place.
  *  `rawText` is the document's original text — exact for "text"/"docx" (no model involved
  *  in producing it), a transcription for "pdf" (see ExtractedProfileWithRawText above) —
  *  returned so the caller can save it as candidates.cv_text regardless of which path the
