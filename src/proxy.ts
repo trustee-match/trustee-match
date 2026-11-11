@@ -9,8 +9,12 @@ import { PREVIEW_COOKIE, PREVIEW_GRANTED, previewGateEnabled } from "@/lib/previ
 // preview deploy (see planning/responsible-design-decisions.md, Security).
 export async function proxy(request: NextRequest) {
   // /about, /terms and /privacy stay readable without the password, so anyone can check
-  // how their data is handled before entering anything.
-  const ungated = ["/enter", "/about", "/terms", "/privacy"];
+  // how their data is handled before entering anything. /auth/callback and /auth/confirm
+  // must also stay reachable regardless of the gate — a magic-link email can be opened on
+  // a different device/browser than the one that originally entered the site password, and
+  // the whole point of /auth/confirm (see that page's own comment) is to survive a mail
+  // security scanner prefetching it, which can't be assumed to hold the gate cookie either.
+  const ungated = ["/enter", "/about", "/terms", "/privacy", "/auth/callback", "/auth/confirm"];
   if (previewGateEnabled() && !ungated.includes(request.nextUrl.pathname)) {
     const cookie = request.cookies.get(PREVIEW_COOKIE)?.value;
     if (cookie !== PREVIEW_GRANTED) {
