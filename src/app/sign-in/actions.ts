@@ -41,6 +41,26 @@ export async function sendSignInLink(email: string, next?: string, captchaToken?
   return { ok: true };
 }
 
+// Manual alternative to clicking the emailed link — see
+// planning/responsible-design-decisions.md, Security, "Magic-link sign-in failed
+// instantly for recipients on Microsoft 365". A link can be silently consumed by a
+// mail provider's own security scanning before the real recipient ever clicks it
+// (/auth/confirm guards against that for the link itself, but a typed code has no URL
+// for anything to prefetch at all — the most robust fallback there is). The email
+// template needs `{{ .Token }}` added so this code actually reaches anyone; see
+// operations.md. `type: "email"` is the verification type Supabase's own docs pair
+// with a magic-link `{{ .Token }}` specifically (not "magiclink", "recovery", etc.).
+export async function verifySignInCode(email: string, token: string): Promise<SendLinkResult> {
+  const trimmed = email.trim();
+  const trimmedToken = token.trim();
+  if (!trimmed || !trimmedToken) return { ok: false, error: "Enter both your email and the code." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.verifyOtp({ email: trimmed, token: trimmedToken, type: "email" });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
 export interface AuthStatus {
   signedIn: boolean;
   email: string | null;

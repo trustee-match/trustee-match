@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { Suspense, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
-import { sendSignInLink } from "./actions";
+import { sendSignInLink, verifySignInCode } from "./actions";
 
 // Cloudflare Turnstile dummy sitekey — always passes, works on any domain including
 // localhost. Real Demo/Production deploys should set NEXT_PUBLIC_TURNSTILE_SITE_KEY to
@@ -12,6 +12,7 @@ import { sendSignInLink } from "./actions";
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "1x00000000000000000000AA";
 
 function SignInForm() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") ?? undefined;
 
@@ -23,6 +24,26 @@ function SignInForm() {
   const [sent, setSent] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const turnstile = useRef<TurnstileInstance>(null);
+
+  // Manual code entry — a fallback for the emailed link, not a replacement for it (see
+  // actions.ts's verifySignInCode doc comment). Separate loading/error state from the
+  // link-request form above since both can be live on screen at once.
+  const [code, setCode] = useState("");
+  const [codeLoading, setCodeLoading] = useState(false);
+  const [codeError, setCodeError] = useState<string | null>(null);
+
+  async function handleVerifyCode() {
+    setCodeError(null);
+    setCodeLoading(true);
+    const result = await verifySignInCode(email, code);
+    setCodeLoading(false);
+    if (!result.ok) {
+      setCodeError(result.error);
+      return;
+    }
+    router.push(next ?? "/");
+    router.refresh();
+  }
 
   async function handleSubmit() {
     if (!captchaToken) {
@@ -44,11 +65,44 @@ function SignInForm() {
 
   if (sent) {
     return (
-      <div className="mx-auto max-w-sm space-y-3 pt-16 text-center">
-        <h1 className="font-serif text-2xl font-semibold">Check your email</h1>
-        <p className="text-sm text-ink-muted">
-          We&apos;ve sent a sign-in link to <strong>{email}</strong>. Click it to continue — this tab can stay open.
-        </p>
+      <div className="mx-auto max-w-sm space-y-6 pt-16 text-center">
+        <div className="space-y-3">
+          <h1 className="font-serif text-2xl font-semibold">Check your email</h1>
+          <p className="text-sm text-ink-muted">
+            We&apos;ve sent a sign-in link to <strong>{email}</strong>. Click it to continue — this tab can stay open.
+          </p>
+        </div>
+
+        <div className="space-y-3 rounded-lg border border-line bg-surface p-4 text-left">
+          <p className="text-sm font-medium">Link not working?</p>
+          <p className="text-xs text-ink-muted">
+            Some workplace email systems automatically open links to scan them, which can use up the link before you
+            click it yourself. If that happens, enter the 6-digit code from the same email instead.
+          </p>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleVerifyCode();
+            }}
+            className="space-y-2"
+          >
+            <input
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              inputMode="numeric"
+              placeholder="123456"
+              className="w-full rounded-md border border-line bg-bg px-3 py-2 text-center text-sm tracking-widest"
+            />
+            {codeError && <p className="text-sm text-missing">{codeError}</p>}
+            <button
+              type="submit"
+              disabled={codeLoading || !code.trim()}
+              className="w-full rounded-md bg-sea px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:text-bg"
+            >
+              {codeLoading ? "Checking…" : "Use code instead"}
+            </button>
+          </form>
+        </div>
       </div>
     );
   }
